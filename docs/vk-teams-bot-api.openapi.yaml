@@ -1,0 +1,947 @@
+openapi: 3.1.0
+info:
+  title: VK Teams Bot API subset for n8n-nodes-vk-teams
+  version: 0.1.0
+  description: >
+    Self-contained OpenAPI-style contract for the VK Teams Bot API methods exposed by
+    this package. It is based on the public VK Teams Bot API swagger fragments, the
+    vk_teams_async_bot typed SDK, and live checks against a real VK Teams endpoint on
+    2026-04-24. VK Teams returns logical API errors as HTTP 200 payloads with
+    ok=false and description.
+  x-sources:
+    - https://teams.vk.com/botapi/api.yaml
+    - https://teams.vk.com/botapi/schemas.json
+    - https://teams.vk.com/botapi/params.json
+    - https://github.com/Quakeer444/vk_teams_async_bot
+  x-live-observed:
+    date: "2026-04-24"
+    endpoint: redacted-real-vk-teams-endpoint
+    checks:
+      - self/get returned ok=true with non-empty nick and userId.
+      - events/get returned ok=true and an events array.
+      - invalid token returned ok=false with description.
+      - answerCallbackQuery without token failed before query validation, while the same call with token reached queryId validation.
+      - deleteMessages accepts repeated msgId query parameters, while msgId[] and msgId[0] style encodings are rejected.
+servers:
+  - url: https://api.example.com/bot/v1
+    description: Replace with credentials Base URL normalized to /bot/v1.
+tags:
+  - name: bot
+  - name: message
+  - name: callback
+  - name: chat
+  - name: file
+  - name: event
+security:
+  - botTokenQuery: []
+paths:
+  /self/get:
+    get:
+      tags: [bot]
+      operationId: bot.getSelf
+      x-n8n-operation: bot.getSelf
+      summary: Get bot self info.
+      parameters:
+        - $ref: "#/components/parameters/token"
+      responses:
+        "200":
+          description: Bot profile or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Bot"
+                  - $ref: "#/components/schemas/ApiError"
+  /messages/sendText:
+    get:
+      tags: [message]
+      operationId: message.sendText
+      x-n8n-operation: message.sendText
+      summary: Send a text message.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/text"
+      responses:
+        "200":
+          description: Sent message id or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MessageResponse"
+                  - $ref: "#/components/schemas/ApiError"
+  /messages/sendFile:
+    post:
+      tags: [message]
+      operationId: message.sendFile
+      x-n8n-operation: message.sendFile
+      x-n8n-current-scope: Uploads incoming binary data; existing fileId reuse is not exposed yet.
+      summary: Upload and send a file.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadFileRequest"
+      responses:
+        "200":
+          description: Sent message id plus uploaded file id, or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/UploadMessageResponse"
+                  - $ref: "#/components/schemas/ApiError"
+  /messages/sendVoice:
+    post:
+      tags: [message]
+      operationId: message.sendVoice
+      x-n8n-operation: message.sendVoice
+      x-n8n-current-scope: Uploads incoming binary data; existing fileId reuse is not exposed yet.
+      summary: Upload and send a voice message.
+      description: VK Teams documents aac, ogg, and m4a voice file support.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: "#/components/schemas/UploadFileRequest"
+      responses:
+        "200":
+          description: Sent message id plus uploaded file id, or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/UploadMessageResponse"
+                  - $ref: "#/components/schemas/ApiError"
+  /messages/editText:
+    get:
+      tags: [message]
+      operationId: message.editText
+      x-n8n-operation: message.editText
+      summary: Edit message text.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/msgId"
+        - $ref: "#/components/parameters/text"
+      responses:
+        "200":
+          description: ok=true or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/ApiError"
+  /messages/deleteMessages:
+    get:
+      tags: [message]
+      operationId: message.deleteMessages
+      x-n8n-operation: message.deleteMessages
+      x-live-observed:
+        msgIdSerialization: repeated query parameters, for example msgId=1&msgId=2.
+        rejectedSerializations:
+          - msgId[]=1&msgId[]=2
+          - msgId[0]=1&msgId[1]=2
+          - msgId=1,2
+      summary: Delete one or more messages.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/msgIds"
+      responses:
+        "200":
+          description: ok=true or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/ApiError"
+  /messages/answerCallbackQuery:
+    get:
+      tags: [callback]
+      operationId: callback.answerCallbackQuery
+      x-n8n-operation: callback.answerCallbackQuery
+      x-live-observed:
+        tokenRequired: true
+        note: Public VK swagger omits token here, but live API requires it.
+      summary: Answer a callback query.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/queryId"
+        - $ref: "#/components/parameters/callbackText"
+      responses:
+        "200":
+          description: ok=true or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/ApiError"
+  /chats/getInfo:
+    get:
+      tags: [chat]
+      operationId: chat.getInfo
+      x-n8n-operation: chat.getInfo
+      summary: Get chat info.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+      responses:
+        "200":
+          description: Chat info or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/Chat"
+                  - $ref: "#/components/schemas/ApiError"
+  /files/getInfo:
+    get:
+      tags: [file]
+      operationId: file.getInfo
+      x-n8n-operation: file.getInfo
+      x-n8n-related-operation: file.download first calls file.getInfo, then downloads FileInfo.url as binary.
+      summary: Get file metadata and download URL.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/fileId"
+      responses:
+        "200":
+          description: File metadata or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/FileInfo"
+                  - $ref: "#/components/schemas/ApiError"
+  /events/get:
+    get:
+      tags: [event]
+      operationId: trigger.events.get
+      x-n8n-operation: vkTeamsTrigger.longPoll
+      summary: Long-poll bot events.
+      description: The trigger keeps a long-lived trigger loop and calls this endpoint with pollTime=60.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/lastEventId"
+        - $ref: "#/components/parameters/pollTime"
+      responses:
+        "200":
+          description: Event batch or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/EventsResponse"
+                  - $ref: "#/components/schemas/ApiError"
+components:
+  securitySchemes:
+    botTokenQuery:
+      type: apiKey
+      in: query
+      name: token
+  parameters:
+    token:
+      name: token
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Bot token received from Metabot.
+    chatId:
+      name: chatId
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Chat id or user id.
+      examples:
+        privateUser:
+          value: "@user_id_example"
+        groupOrChannel:
+          value: 681869378@chat.agent
+    text:
+      name: text
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Message text.
+    callbackText:
+      name: text
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Optional callback answer text.
+    msgId:
+      name: msgId
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Message id. Public docs mark this as integer; API responses and node inputs keep it as string.
+    msgIds:
+      name: msgId
+      in: query
+      required: true
+      style: form
+      explode: true
+      schema:
+        type: array
+        minItems: 1
+        items:
+          type: string
+      description: Message ids serialized as repeated msgId query parameters.
+    fileId:
+      name: fileId
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Uploaded VK Teams file id.
+    caption:
+      name: caption
+      in: query
+      required: false
+      schema:
+        type: string
+      description: File caption.
+    replyMsgId:
+      name: replyMsgId
+      in: query
+      required: false
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+      description: Message ids to reply to.
+    forwardChatId:
+      name: forwardChatId
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Chat id containing messages to forward.
+    forwardMsgId:
+      name: forwardMsgId
+      in: query
+      required: false
+      style: form
+      explode: true
+      schema:
+        type: array
+        items:
+          type: string
+      description: Message ids to forward.
+    inlineKeyboardMarkup:
+      name: inlineKeyboardMarkup
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/InlineKeyboardMarkup"
+      description: Inline keyboard markup serialized as query parameter.
+    format:
+      name: format
+      in: query
+      required: false
+      schema:
+        $ref: "#/components/schemas/Format"
+      description: Rich text format ranges serialized as query parameter.
+    parseMode:
+      name: parseMode
+      in: query
+      required: false
+      schema:
+        type: string
+        enum: [MarkdownV2, HTML]
+      description: Server-side text parse mode.
+    queryId:
+      name: queryId
+      in: query
+      required: true
+      schema:
+        type: string
+      description: Callback query id from callbackQuery event payload.
+    showAlert:
+      name: showAlert
+      in: query
+      required: false
+      schema:
+        type: boolean
+      description: Show callback answer as alert.
+    url:
+      name: url
+      in: query
+      required: false
+      schema:
+        type: string
+        format: uri
+      description: Optional URL to open from callback answer.
+    lastEventId:
+      name: lastEventId
+      in: query
+      required: true
+      schema:
+        type: integer
+        minimum: 0
+      description: Last processed event id. Use 0 for initial long poll.
+    pollTime:
+      name: pollTime
+      in: query
+      required: true
+      schema:
+        type: integer
+        minimum: 1
+      description: Long-poll timeout in seconds.
+  schemas:
+    ApiError:
+      type: object
+      required: [ok, description]
+      properties:
+        ok:
+          type: boolean
+          const: false
+        description:
+          type: string
+      additionalProperties: true
+    OkResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+          const: true
+      additionalProperties: true
+    MessageResponse:
+      type: object
+      required: [ok, msgId]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        msgId:
+          type: string
+      additionalProperties: true
+    UploadMessageResponse:
+      type: object
+      required: [ok, msgId, fileId]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        msgId:
+          type: string
+        fileId:
+          type: string
+      additionalProperties: true
+    Bot:
+      type: object
+      required: [ok, userId, nick]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        userId:
+          type: string
+        nick:
+          type: string
+        firstName:
+          type: string
+        about:
+          type: string
+        photo:
+          type: array
+          items:
+            $ref: "#/components/schemas/UrlObject"
+      additionalProperties: true
+    UrlObject:
+      type: object
+      properties:
+        url:
+          type: string
+          format: uri
+      additionalProperties: true
+    FileInfo:
+      type: object
+      required: [url]
+      properties:
+        ok:
+          type: boolean
+        type:
+          type: string
+          examples: [video, image, audio]
+        size:
+          type: integer
+        filename:
+          type: string
+        url:
+          type: string
+          format: uri
+      additionalProperties: true
+    Chat:
+      oneOf:
+        - $ref: "#/components/schemas/PrivateChat"
+        - $ref: "#/components/schemas/GroupChat"
+        - $ref: "#/components/schemas/ChannelChat"
+    PrivateChat:
+      type: object
+      required: [type]
+      properties:
+        ok:
+          type: boolean
+        type:
+          type: string
+          const: private
+        firstName:
+          type: string
+        lastName:
+          type: string
+        nick:
+          type: string
+        about:
+          type: string
+        isBot:
+          type: boolean
+        language:
+          type: string
+          description: ISO 639-1 language code.
+      additionalProperties: true
+    GroupChat:
+      type: object
+      required: [type]
+      properties:
+        ok:
+          type: boolean
+        type:
+          type: string
+          const: group
+        title:
+          type: string
+        about:
+          type: string
+        rules:
+          type: string
+        inviteLink:
+          type: string
+          format: uri
+        public:
+          type: boolean
+        joinModeration:
+          type: boolean
+      additionalProperties: true
+    ChannelChat:
+      type: object
+      required: [type]
+      properties:
+        ok:
+          type: boolean
+        type:
+          type: string
+          const: channel
+        title:
+          type: string
+        about:
+          type: string
+        rules:
+          type: string
+        inviteLink:
+          type: string
+          format: uri
+        public:
+          type: boolean
+        joinModeration:
+          type: boolean
+      additionalProperties: true
+    UploadFileRequest:
+      type: object
+      required: [file]
+      properties:
+        file:
+          type: string
+          format: binary
+    EventsResponse:
+      type: object
+      required: [ok, events]
+      properties:
+        ok:
+          type: boolean
+          const: true
+        events:
+          type: array
+          items:
+            $ref: "#/components/schemas/SupportedEvent"
+      additionalProperties: true
+    SupportedEvent:
+      oneOf:
+        - $ref: "#/components/schemas/NewMessageEvent"
+        - $ref: "#/components/schemas/EditedMessageEvent"
+        - $ref: "#/components/schemas/DeletedMessageEvent"
+        - $ref: "#/components/schemas/CallbackQueryEvent"
+      discriminator:
+        propertyName: type
+        mapping:
+          newMessage: "#/components/schemas/NewMessageEvent"
+          editedMessage: "#/components/schemas/EditedMessageEvent"
+          deletedMessage: "#/components/schemas/DeletedMessageEvent"
+          callbackQuery: "#/components/schemas/CallbackQueryEvent"
+    BaseEvent:
+      type: object
+      required: [eventId, type, payload]
+      properties:
+        eventId:
+          type: integer
+        type:
+          type: string
+        payload:
+          type: object
+      additionalProperties: true
+    NewMessageEvent:
+      allOf:
+        - $ref: "#/components/schemas/BaseEvent"
+        - type: object
+          x-n8n-trigger-event: message
+          x-raw-api-event-type: newMessage
+          description: Raw VK Teams event type is newMessage; n8n exposes this trigger option as message.
+          properties:
+            type:
+              type: string
+              const: newMessage
+            payload:
+              $ref: "#/components/schemas/MessagePayload"
+    EditedMessageEvent:
+      allOf:
+        - $ref: "#/components/schemas/BaseEvent"
+        - type: object
+          properties:
+            type:
+              type: string
+              const: editedMessage
+            payload:
+              allOf:
+                - $ref: "#/components/schemas/MessagePayload"
+                - type: object
+                  properties:
+                    editedTimestamp:
+                      type: integer
+    DeletedMessageEvent:
+      allOf:
+        - $ref: "#/components/schemas/BaseEvent"
+        - type: object
+          properties:
+            type:
+              type: string
+              const: deletedMessage
+            payload:
+              type: object
+              required: [msgId, chat]
+              properties:
+                msgId:
+                  type: string
+                chat:
+                  $ref: "#/components/schemas/EventChat"
+                timestamp:
+                  type: integer
+              additionalProperties: true
+    CallbackQueryEvent:
+      allOf:
+        - $ref: "#/components/schemas/BaseEvent"
+        - type: object
+          properties:
+            type:
+              type: string
+              const: callbackQuery
+            payload:
+              type: object
+              required: [queryId, from, callbackData]
+              properties:
+                queryId:
+                  type: string
+                chat:
+                  $ref: "#/components/schemas/EventChat"
+                from:
+                  $ref: "#/components/schemas/EventUser"
+                message:
+                  $ref: "#/components/schemas/NestedMessage"
+                callbackData:
+                  type: string
+              additionalProperties: true
+    MessagePayload:
+      type: object
+      required: [msgId, chat, from]
+      properties:
+        msgId:
+          type: string
+        chat:
+          $ref: "#/components/schemas/EventChat"
+        from:
+          $ref: "#/components/schemas/EventUser"
+        timestamp:
+          type: integer
+        text:
+          type: string
+        format:
+          $ref: "#/components/schemas/Format"
+        parts:
+          type: array
+          items:
+            $ref: "#/components/schemas/MessagePart"
+      additionalProperties: true
+    NestedMessage:
+      type: object
+      properties:
+        msgId:
+          type: string
+        chat:
+          $ref: "#/components/schemas/EventChat"
+        from:
+          $ref: "#/components/schemas/EventUser"
+        text:
+          type: string
+        format:
+          $ref: "#/components/schemas/Format"
+        timestamp:
+          type: integer
+      additionalProperties: true
+    EventChat:
+      type: object
+      required: [chatId]
+      properties:
+        chatId:
+          type: string
+        type:
+          type: string
+          enum: [private, group, channel]
+        title:
+          type: string
+      additionalProperties: true
+    EventUser:
+      type: object
+      required: [userId]
+      properties:
+        userId:
+          type: string
+        firstName:
+          type: string
+        lastName:
+          type: string
+      additionalProperties: true
+    MessagePart:
+      oneOf:
+        - $ref: "#/components/schemas/FilePart"
+        - $ref: "#/components/schemas/VoicePart"
+        - $ref: "#/components/schemas/StickerPart"
+        - $ref: "#/components/schemas/MentionPart"
+        - $ref: "#/components/schemas/ForwardPart"
+        - $ref: "#/components/schemas/ReplyPart"
+      discriminator:
+        propertyName: type
+        mapping:
+          file: "#/components/schemas/FilePart"
+          voice: "#/components/schemas/VoicePart"
+          sticker: "#/components/schemas/StickerPart"
+          mention: "#/components/schemas/MentionPart"
+          forward: "#/components/schemas/ForwardPart"
+          reply: "#/components/schemas/ReplyPart"
+    FilePart:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          const: file
+        payload:
+          type: object
+          required: [fileId]
+          properties:
+            fileId:
+              type: string
+            type:
+              type: string
+              enum: [image, audio, video]
+            caption:
+              type: string
+            format:
+              $ref: "#/components/schemas/Format"
+          additionalProperties: true
+    VoicePart:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          const: voice
+        payload:
+          $ref: "#/components/schemas/FileIdPayload"
+    StickerPart:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          const: sticker
+        payload:
+          $ref: "#/components/schemas/FileIdPayload"
+    FileIdPayload:
+      type: object
+      required: [fileId]
+      properties:
+        fileId:
+          type: string
+      additionalProperties: true
+    MentionPart:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          const: mention
+        payload:
+          $ref: "#/components/schemas/EventUser"
+    ForwardPart:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          const: forward
+        payload:
+          type: object
+          properties:
+            message:
+              $ref: "#/components/schemas/NestedMessage"
+          additionalProperties: true
+    ReplyPart:
+      type: object
+      required: [type, payload]
+      properties:
+        type:
+          type: string
+          const: reply
+        payload:
+          type: object
+          properties:
+            message:
+              $ref: "#/components/schemas/NestedMessage"
+          additionalProperties: true
+    InlineKeyboardMarkup:
+      type: array
+      items:
+        type: array
+        items:
+          oneOf:
+            - $ref: "#/components/schemas/UrlKeyboardButton"
+            - $ref: "#/components/schemas/CallbackKeyboardButton"
+    UrlKeyboardButton:
+      type: object
+      required: [text, url]
+      properties:
+        text:
+          type: string
+        url:
+          type: string
+          format: uri
+        style:
+          $ref: "#/components/schemas/KeyboardButtonStyle"
+    CallbackKeyboardButton:
+      type: object
+      required: [text, callbackData]
+      properties:
+        text:
+          type: string
+        callbackData:
+          type: string
+        style:
+          $ref: "#/components/schemas/KeyboardButtonStyle"
+    KeyboardButtonStyle:
+      type: string
+      enum: [attention, primary, base]
+      default: base
+    Format:
+      type: object
+      additionalProperties: false
+      properties:
+        bold:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatRange"
+        italic:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatRange"
+        underline:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatRange"
+        strikethrough:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatRange"
+        link:
+          type: array
+          items:
+            $ref: "#/components/schemas/LinkFormatRange"
+        mention:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatRange"
+        inline_code:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatRange"
+        pre:
+          type: array
+          items:
+            $ref: "#/components/schemas/PreFormatRange"
+        ordered_list:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatRange"
+        unordered_list:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatRange"
+        quote:
+          type: array
+          items:
+            $ref: "#/components/schemas/FormatRange"
+    FormatRange:
+      type: object
+      required: [offset, length]
+      properties:
+        offset:
+          type: integer
+          minimum: 0
+        length:
+          type: integer
+          minimum: 1
+    LinkFormatRange:
+      allOf:
+        - $ref: "#/components/schemas/FormatRange"
+        - type: object
+          required: [url]
+          properties:
+            url:
+              type: string
+              format: uri
+    PreFormatRange:
+      allOf:
+        - $ref: "#/components/schemas/FormatRange"
+        - type: object
+          properties:
+            language:
+              type: string

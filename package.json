@@ -1,0 +1,61 @@
+{
+	"name": "n8n-nodes-vk-teams",
+	"version": "0.1.0",
+	"description": "n8n community nodes for VK Teams bots",
+	"license": "MIT",
+	"homepage": "https://github.com/pfrankov/n8n-nodes-vk-teams",
+	"keywords": [
+		"n8n-community-node-package",
+		"n8n",
+		"vk teams",
+		"vk workspace",
+		"bot"
+	],
+	"author": {
+		"name": "Pavel Frankov",
+		"email": "pavel@frankov.ru"
+	},
+	"repository": {
+		"type": "git",
+		"url": "git@github.com:pfrankov/n8n-nodes-vk-teams.git"
+	},
+	"scripts": {
+		"build": "n8n-node build",
+		"build:watch": "tsc --watch",
+		"dev": "n8n-node dev",
+		"lint": "n8n-node lint",
+		"lint:fix": "n8n-node lint --fix",
+		"lint:types": "node tools/lint-openapi-types.js",
+		"lint:types:live": "node tools/lint-openapi-types.js --live",
+		"test": "rm -rf .test-dist && tsc -p tsconfig.test.json && node --test .test-dist/tests/**/*.test.js",
+		"release": "n8n-node release",
+		"prepublishOnly": "n8n-node prerelease"
+	},
+	"files": [
+		"docs/vk-teams-bot-api.openapi.yaml",
+		"dist"
+	],
+	"n8n": {
+		"n8nNodesApiVersion": 1,
+		"strict": false,
+		"credentials": [
+			"dist/credentials/VkTeamsApi.credentials.js"
+		],
+		"nodes": [
+			"dist/nodes/VkTeams/VkTeams.node.js",
+			"dist/nodes/VkTeamsTrigger/VkTeamsTrigger.node.js"
+		]
+	},
+	"devDependencies": {
+		"@n8n/node-cli": "*",
+		"@types/node": "^24.7.2",
+		"eslint": "9.39.4",
+		"prettier": "3.8.3",
+		"release-it": "^20.0.0",
+		"typescript": "5.9.3",
+		"yaml": "2.8.3"
+	},
+	"peerDependencies": {
+		"n8n-workflow": "*"
+	}
+}

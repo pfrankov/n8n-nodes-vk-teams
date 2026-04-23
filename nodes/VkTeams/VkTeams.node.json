@@ -1,0 +1,18 @@
+{
+	"node": "n8n-nodes-vk-teams",
+	"nodeVersion": "1.0",
+	"codexVersion": "1.0",
+	"categories": ["Communication"],
+	"resources": {
+		"credentialDocumentation": [
+			{
+				"url": "https://teams.vk.com/botapi/"
+			}
+		],
+		"primaryDocumentation": [
+			{
+				"url": "https://workspace.vk.ru/docs/saas/vks-messenger/messenger/bot/"
+			}
+		]
+	}
+}
