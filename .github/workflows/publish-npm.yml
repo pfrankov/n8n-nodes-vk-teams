@@ -72,7 +72,7 @@ jobs:
           PKG_VERSION="$(node -p "require('./package.json').version")"
 
           if [[ "$PKG_VERSION" == *-* ]]; then
-            npm publish --access public --provenance --tag beta
+            npm publish --ignore-scripts --access public --provenance --tag beta
           else
-            npm publish --access public --provenance
+            npm publish --ignore-scripts --access public --provenance
           fi

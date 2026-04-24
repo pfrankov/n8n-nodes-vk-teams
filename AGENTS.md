@@ -126,6 +126,7 @@ If live VK Teams credentials are available, verify API alignment against a real 
 - `npm version` normally requires a clean working tree. If release notes or documentation changes must be included in the version commit, stage only those reviewed files, re-check `git status`, then use `npm version ... --force -m "v%s"`. Do not use `--force` with unreviewed or unrelated changes.
 - Push the branch and the exact release tag together: `git push origin master vX.Y.Z`.
 - Pushing the release tag triggers `.github/workflows/publish-npm.yml`; check the GitHub Actions run before considering the release complete.
+- The publish workflow intentionally uses `npm publish --ignore-scripts` because this package keeps `prepublishOnly: n8n-node prerelease` as a local manual-publish guard. CI must run tests, lint, type/schema lint, build, and `npm pack --dry-run` before publishing, then skip npm lifecycle scripts only for the final publish command.
 
 ## Documentation Expectations
 
