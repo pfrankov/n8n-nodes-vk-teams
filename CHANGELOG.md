@@ -14,7 +14,7 @@
 ### Сопровождение
 
 - Добавлена локальная OpenAPI-подобная схема поддерживаемого VK Teams Bot API scope и проверка `npm run lint:types`.
-- Добавлен GitHub Actions workflow для публикации npm-пакета по релизному тегу `v*` с проверками, `npm pack --dry-run`, `npm publish --provenance` и созданием GitHub Release.
+- Добавлен GitHub Actions workflow для публикации npm-пакета по релизному тегу `v*` с проверками, `npm pack --dry-run` и `npm publish --provenance`.
 
 ### Ограничения
 
