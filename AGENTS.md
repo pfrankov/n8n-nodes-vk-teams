@@ -116,6 +116,17 @@ When touching node registration, credentials, or packaging, also perform a local
 
 If live VK Teams credentials are available, verify API alignment against a real bot before closing major API changes. If not available, state that precisely in the final report.
 
+## Release Process
+
+- Create release commits and tags with `npm version`, not with `npm run release` or `n8n-node release`.
+- Release tags must use npm's default `v` prefix and must match `package.json` exactly, for example package version `0.1.0` is released as tag `v0.1.0`.
+- Before running `npm version`, update `CHANGELOG.md`, update any relevant docs, run the full verification set, and confirm the target tag does not already exist locally or on `origin`.
+- For a normal bump, use `npm version patch`, `npm version minor`, `npm version major`, or an explicit semver version with `-m "v%s"`.
+- For the first release when `package.json` already contains the desired version, use `npm version <current-version> --allow-same-version -m "v%s"`.
+- `npm version` normally requires a clean working tree. If release notes or documentation changes must be included in the version commit, stage only those reviewed files, re-check `git status`, then use `npm version ... --force -m "v%s"`. Do not use `--force` with unreviewed or unrelated changes.
+- Push the branch and the exact release tag together: `git push origin master vX.Y.Z`.
+- Pushing the release tag triggers `.github/workflows/publish-npm.yml`; check the GitHub Actions run before considering the release complete.
+
 ## Documentation Expectations
 
 - Keep `README.md` in Russian and user-oriented.
