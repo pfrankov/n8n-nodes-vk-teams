@@ -55,29 +55,43 @@ test('sendJsonRequest rejects logical VK Teams API errors', async () => {
 });
 
 test('sendUploadRequest rejects logical VK Teams API errors', async () => {
-	await assert.rejects(
-		sendUploadRequest(
-			{
-				helpers: {
-					async httpRequest() {
-						return { ok: false, description: 'file too large' };
-					},
+	const originalFetch = globalThis.fetch;
+	globalThis.fetch = (async (url, init) => {
+		assert.equal(
+			String(url),
+			'https://myteam.example/bot/v1/messages/sendFile?token=token&chatId=chat-1',
+		);
+		assert.equal(init?.method, 'POST');
+		assert.ok(init?.body instanceof FormData);
+
+		return {
+			async json() {
+				return { ok: false, description: 'file too large' };
+			},
+		} as Response;
+	}) as typeof fetch;
+
+	try {
+		await assert.rejects(
+			sendUploadRequest(
+				{} as never,
+				credentials,
+				{
+					endpoint: '/messages/sendFile',
+					params: { chatId: 'chat-1' },
+					fileField: 'file',
+					fileName: 'report.txt',
+					fileContentType: 'text/plain',
 				},
-			} as never,
-			credentials,
-			{
-				endpoint: '/messages/sendFile',
-				params: { chatId: 'chat-1' },
-				fileField: 'file',
-				fileName: 'report.txt',
-				fileContentType: 'text/plain',
-			},
-			{
-				data: Buffer.from('file'),
-				fileName: 'report.txt',
-				mimeType: 'text/plain',
-			},
-		),
-		/VK Teams API error: file too large/,
-	);
+				{
+					data: Buffer.from('file'),
+					fileName: 'report.txt',
+					mimeType: 'text/plain',
+				},
+			),
+			/VK Teams API error: file too large/,
+		);
+	} finally {
+		globalThis.fetch = originalFetch;
+	}
 });

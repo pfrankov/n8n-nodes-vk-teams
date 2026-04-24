@@ -34,7 +34,7 @@ export async function readBinaryFile(
 
 	if (binaryData.id) {
 		return {
-			data: await context.helpers.getBinaryStream(binaryData.id),
+			data: await context.helpers.getBinaryDataBuffer(itemIndex, binaryPropertyName),
 			fileName: requireFileName(binaryData.fileName),
 			mimeType: binaryData.mimeType ?? 'application/octet-stream',
 		};

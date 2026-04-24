@@ -1,5 +1,26 @@
 # CHANGELOG
 
+## v0.1.1
+
+### Добавлено
+
+- Добавлен переносимый draft-workflow `docs/workflows/vk-teams-node-verification.workflow.json` и короткий runbook по его импорту, повторному запуску и пересинхронизации, чтобы регрессионно прогонять `VK Teams` и `VK Teams Trigger` на реальном боте без ручной сборки тестовой схемы в n8n.
+
+### Исправлено
+
+- `VK Teams` теперь корректно отправляет `message.sendFile` и `message.sendVoice`, когда n8n хранит incoming binary data во внешнем binary storage, а не inline в item; это устраняет падения отправки файла и голосового сообщения в таких инсталляциях.
+
+Кому важно:
+
+- Пользователям self-hosted n8n, у которых binary data вынесены во внешнее хранилище и операции `message.sendFile` или `message.sendVoice` раньше срывались на чтении входного файла.
+- Тем, кто поддерживает пакет и хочет быстро прогонять ручную VK Teams-регрессию через готовый workflow, а не собирать проверочную схему заново в каждом стенде.
+
+Что проверить после обновления:
+
+1. Повторить `VK Teams` -> `Message` -> `Send File` и `Send Voice` на instance, где n8n не хранит binary data inline.
+2. При необходимости импортировать `docs/workflows/vk-teams-node-verification.workflow.json`, назначить `VK Teams API` credentials и прогнать form-ветку на выделенном тестовом `chatId`.
+3. Если проверяете trigger-ветку, убедиться, что workflow остаётся draft вне самой проверки и не запускает лишний параллельный long-poll consumer для того же бота.
+
 ## v0.1.0
 
 ### Добавлено

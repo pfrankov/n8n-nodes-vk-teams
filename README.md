@@ -151,6 +151,14 @@ VK_TEAMS_BOT_TOKEN=... \
 npm run lint:types:live
 ```
 
+## Проверочный workflow
+
+В репозитории сохранён переносимый draft-workflow для регрессионной проверки ноды:
+
+- [`docs/workflows/vk-teams-node-verification.workflow.json`](docs/workflows/vk-teams-node-verification.workflow.json)
+
+Краткий runbook по импорту, повторному запуску и пересинхронизации артефакта лежит в [`docs/workflows/README.md`](docs/workflows/README.md).
+
 ## Лицензия
 
 MIT

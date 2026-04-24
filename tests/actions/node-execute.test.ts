@@ -1,12 +1,8 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
-import { Readable } from 'node:stream';
-
 import { VkTeams, readBinaryFile } from '../../nodes/VkTeams/VkTeams.node';
 
-test('readBinaryFile uses binary stream when n8n stores data externally', async () => {
-	const stream = Readable.from(['file']);
-
+test('readBinaryFile uses binary buffer when n8n stores data externally', async () => {
 	const result = await readBinaryFile(
 		{
 			helpers: {
@@ -17,9 +13,10 @@ test('readBinaryFile uses binary stream when n8n stores data externally', async 
 						mimeType: 'text/plain',
 					};
 				},
-				async getBinaryStream(id: string) {
-					assert.equal(id, 'binary-1');
-					return stream;
+				async getBinaryDataBuffer(itemIndex: number, binaryPropertyName: string) {
+					assert.equal(itemIndex, 0);
+					assert.equal(binaryPropertyName, 'data');
+					return Buffer.from('file');
 				},
 			},
 		} as never,
@@ -27,7 +24,7 @@ test('readBinaryFile uses binary stream when n8n stores data externally', async 
 		'data',
 	);
 
-	assert.equal(result.data, stream);
+	assert.deepEqual(result.data, Buffer.from('file'));
 	assert.equal(result.fileName, 'report.txt');
 	assert.equal(result.mimeType, 'text/plain');
 });

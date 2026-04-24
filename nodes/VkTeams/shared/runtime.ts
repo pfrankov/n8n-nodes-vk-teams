@@ -114,9 +114,32 @@ export async function sendUploadRequest(
 		file: binaryFile.data,
 	});
 
-	const response = await context.helpers.httpRequest(options as IHttpRequestOptions);
+	const fileBuffer = Buffer.isBuffer(binaryFile.data)
+		? binaryFile.data
+		: await streamToBuffer(binaryFile.data);
+	const form = new FormData();
+	form.append(
+		request.fileField,
+		new Blob([fileBuffer], { type: request.fileContentType }),
+		request.fileName,
+	);
+
+	const response = await fetch(options.url, {
+		method: 'POST',
+		body: form,
+	}).then(async (apiResponse) => (await apiResponse.json()) as unknown);
 
 	return assertSuccessfulVkTeamsResponse(response);
+}
+
+async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
+	const chunks: Buffer[] = [];
+
+	for await (const chunk of stream) {
+		chunks.push(Buffer.isBuffer(chunk) ? chunk : Buffer.from(chunk));
+	}
+
+	return Buffer.concat(chunks);
 }
 
 export async function downloadBinary(context: RequestContext, url: string) {

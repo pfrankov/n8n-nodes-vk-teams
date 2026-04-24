@@ -1,0 +1,582 @@
+{
+  "name": "VK Teams Node Verification Matrix",
+  "description": "Draft workflow for real VK Teams custom-node verification: action matrix via form plus long-poll trigger branch. Assign a VK Teams API credential after import.",
+  "nodes": [
+    {
+      "id": "ffda8181-d51a-4b9c-8249-450328f64852",
+      "name": "Verification Instructions",
+      "type": "n8n-nodes-base.stickyNote",
+      "typeVersion": 1,
+      "position": [
+        0,
+        -460
+      ],
+      "parameters": {
+        "width": 640,
+        "height": 340,
+        "color": 4,
+        "content": "## VK Teams verification matrix\n\nForm branch runs real custom-node actions with assigned `VK Teams API` credential. Use a dedicated test chatId because it sends text, file, and voice messages, then tries best-effort cleanup.\n\nCovered actions: bot.getSelf, chat.getInfo, message.sendText/editText/deleteMessages, message.sendFile/sendVoice, file.getInfo/download, callback.answerCallbackQuery when callbackQueryId is provided.\n\nTrigger branch covers long polling for message, editedMessage, deletedMessage, callbackQuery with Download Files enabled. Keep workflow draft unless you intentionally want another active long-poll consumer for this bot."
+      }
+    },
+    {
+      "id": "859546f5-3004-419d-8ee0-eaaee8e13020",
+      "name": "Run VK Teams Verification Form",
+      "type": "n8n-nodes-base.formTrigger",
+      "typeVersion": 2.5,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {
+        "authentication": "none",
+        "formTitle": "VK Teams node verification matrix",
+        "formDescription": "Runs real VK Teams Bot API checks through the custom VK Teams node. Provide a dedicated test chatId; message/file/voice operations send real messages and cleanup best-effort.",
+        "formFields": {
+          "values": [
+            {
+              "fieldName": "chatId",
+              "fieldLabel": "Test chatId",
+              "fieldType": "text",
+              "placeholder": "chatId for a bot-accessible test chat",
+              "requiredField": true
+            },
+            {
+              "fieldName": "fileId",
+              "fieldLabel": "Existing fileId fallback",
+              "fieldType": "text",
+              "placeholder": "Optional; used if sendFile does not return fileId",
+              "requiredField": false
+            },
+            {
+              "fieldName": "callbackQueryId",
+              "fieldLabel": "Callback queryId",
+              "fieldType": "text",
+              "placeholder": "Optional; only needed to verify callback.answerCallbackQuery",
+              "requiredField": false
+            },
+            {
+              "fieldName": "label",
+              "fieldLabel": "Run label",
+              "fieldType": "text",
+              "placeholder": "Optional label for this run",
+              "requiredField": false
+            }
+          ]
+        },
+        "responseMode": "lastNode",
+        "options": {
+          "path": "vk-teams-node-verification",
+          "buttonLabel": "Run VK Teams checks",
+          "appendAttribution": false
+        }
+      }
+    },
+    {
+      "id": "3b6389a3-ac90-4249-9d5d-b5f6c581c892",
+      "name": "Prepare Matrix Inputs",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        280,
+        0
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const source = $input.first().json;\nconst value = (name) => String(source[name] ?? '').trim();\nconst runId = new Date().toISOString().replace(/[:.]/g, '-');\nconst label = value('label') || 'manual';\nconst chatId = value('chatId');\nif (!chatId) { throw new Error('chatId is required for real VK Teams action verification'); }\nreturn [{ json: { runId, label, chatId, fileId: value('fileId'), callbackQueryId: value('callbackQueryId'), text: 'n8n VK Teams verification ' + runId + ' [' + label + ']', editedText: 'n8n VK Teams verification edited ' + runId + ' [' + label + ']', callbackText: 'n8n verification callback answered ' + runId } }];"
+      }
+    },
+    {
+      "id": "16289691-87da-45e9-a09b-41b28ab3939a",
+      "name": "Bot Get Self",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        560,
+        -180
+      ],
+      "parameters": {
+        "resource": "bot",
+        "operation": "getSelf"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "91057dea-6d26-423e-8686-616768ffa559",
+      "name": "Chat Get Info",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        820,
+        -180
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "getInfo",
+        "chatId": "={{ $(\"Prepare Matrix Inputs\").item.json.chatId }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "440db5d2-f12e-48d5-9a8a-0cbb49e45a6d",
+      "name": "Send Text",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        1080,
+        -180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendText",
+        "chatId": "={{ $(\"Prepare Matrix Inputs\").item.json.chatId }}",
+        "text": "={{ $(\"Prepare Matrix Inputs\").item.json.text }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "c34cc0b7-b0ed-4047-84ef-642d8f5f0705",
+      "name": "Edit Text",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        1340,
+        -180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "editText",
+        "chatId": "={{ $(\"Prepare Matrix Inputs\").item.json.chatId }}",
+        "msgId": "={{ $(\"Send Text\").item.json.msgId }}",
+        "text": "={{ $(\"Prepare Matrix Inputs\").item.json.editedText }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "77ad59ad-d556-4e38-bf7a-e4a5a6c7d1a8",
+      "name": "Prepare File Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        1600,
+        -180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const source = $items('Prepare Matrix Inputs')[0].json;\nconst content = 'VK Teams sendFile verification\\nrunId=' + source.runId + '\\nlabel=' + source.label + '\\n';\nreturn [{ json: { ...source }, binary: { data: { data: Buffer.from(content, 'utf8').toString('base64'), mimeType: 'text/plain', fileName: 'vk-teams-verification-' + source.runId + '.txt' } } }];"
+      }
+    },
+    {
+      "id": "22efd2d0-813d-4eaf-a64e-78a13fe5d427",
+      "name": "Send File",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        1860,
+        -180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendFile",
+        "chatId": "={{ $(\"Prepare Matrix Inputs\").item.json.chatId }}",
+        "binaryPropertyName": "data"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "0d0c67e1-5d48-4f5f-a0bd-ef0b5eb0e26d",
+      "name": "File Get Info",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        2120,
+        -180
+      ],
+      "parameters": {
+        "resource": "file",
+        "operation": "getInfo",
+        "fileId": "={{ $(\"Send File\").item.json.fileId || $(\"Prepare Matrix Inputs\").item.json.fileId }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "3532152c-07b1-4304-8ac0-a31d3d49457b",
+      "name": "File Download",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        2380,
+        -180
+      ],
+      "parameters": {
+        "resource": "file",
+        "operation": "download",
+        "fileId": "={{ $(\"Send File\").item.json.fileId || $(\"Prepare Matrix Inputs\").item.json.fileId }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "8059327b-5ba2-4106-9466-c0d7eee56c7a",
+      "name": "Prepare Voice Binary",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        2640,
+        -180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "const source = $items('Prepare Matrix Inputs')[0].json;\nconst wav = Buffer.from([0x52,0x49,0x46,0x46,0x24,0x00,0x00,0x00,0x57,0x41,0x56,0x45,0x66,0x6d,0x74,0x20,0x10,0x00,0x00,0x00,0x01,0x00,0x01,0x00,0x40,0x1f,0x00,0x00,0x40,0x1f,0x00,0x00,0x01,0x00,0x08,0x00,0x64,0x61,0x74,0x61,0x00,0x00,0x00,0x00]);\nreturn [{ json: { ...source }, binary: { data: { data: wav.toString('base64'), mimeType: 'audio/wav', fileName: 'vk-teams-verification-' + source.runId + '.wav' } } }];"
+      }
+    },
+    {
+      "id": "36d819c7-4c1a-4b06-9669-6f4325db8d57",
+      "name": "Send Voice",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        2900,
+        -180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendVoice",
+        "chatId": "={{ $(\"Prepare Matrix Inputs\").item.json.chatId }}",
+        "binaryPropertyName": "data"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "c5bb5efe-9c09-4f74-be2b-c6dcaaf16a59",
+      "name": "Answer Callback Query",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        3160,
+        -180
+      ],
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerCallbackQuery",
+        "queryId": "={{ $(\"Prepare Matrix Inputs\").item.json.callbackQueryId }}",
+        "text": "={{ $(\"Prepare Matrix Inputs\").item.json.callbackText }}"
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "39af1373-2cc1-4c73-8736-dc56a9458edf",
+      "name": "Delete Text Message",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        3420,
+        -300
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "deleteMessages",
+        "chatId": "={{ $(\"Prepare Matrix Inputs\").item.json.chatId }}",
+        "messageIds": {
+          "values": [
+            {
+              "msgId": "={{ $(\"Send Text\").item.json.msgId }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "ce5ef738-8fd8-442f-b65d-949b13e89f6d",
+      "name": "Delete File Message",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        3420,
+        -180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "deleteMessages",
+        "chatId": "={{ $(\"Prepare Matrix Inputs\").item.json.chatId }}",
+        "messageIds": {
+          "values": [
+            {
+              "msgId": "={{ $(\"Send File\").item.json.msgId }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "83f75477-30c1-41e8-8bc8-f2b66045b9dc",
+      "name": "Delete Voice Message",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        3420,
+        -60
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "deleteMessages",
+        "chatId": "={{ $(\"Prepare Matrix Inputs\").item.json.chatId }}",
+        "messageIds": {
+          "values": [
+            {
+              "msgId": "={{ $(\"Send Voice\").item.json.msgId }}"
+            }
+          ]
+        }
+      },
+      "onError": "continueRegularOutput"
+    },
+    {
+      "id": "b06b30da-715f-48b1-8ba2-c7c46afd86d6",
+      "name": "Build Verification Report",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        3700,
+        -180
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "function firstItem(name) { try { const items = $items(name); return items[0] || { json: { error: 'node produced no items' } }; } catch (error) { return { json: { error: error.message } }; } }\nfunction cleanJson(json) { const copy = { ...(json || {}) }; delete copy.url; delete copy.token; return copy; }\nfunction statusFor(name, options = {}) { const input = firstItem('Prepare Matrix Inputs').json || {}; if (options.requiredInput && !input[options.requiredInput]) { return { operation: options.operation, status: 'skipped_missing_input', node: name, details: { missingInput: options.requiredInput } }; } const item = firstItem(name); const json = item.json || {}; const hasBinary = Boolean(item.binary && Object.keys(item.binary).length > 0); const ok = !json.error && (json.ok === true || options.passWhen?.(json, hasBinary)); return { operation: options.operation, status: ok ? 'passed' : 'failed', node: name, hasBinary, resultKeys: Object.keys(json).filter((key) => key !== 'url').sort(), details: ok ? cleanJson(json) : { error: json.error || json.description || 'No success marker in node output', result: cleanJson(json) } }; }\nconst checks = [statusFor('Bot Get Self', { operation: 'bot.getSelf' }), statusFor('Chat Get Info', { operation: 'chat.getInfo' }), statusFor('Send Text', { operation: 'message.sendText' }), statusFor('Edit Text', { operation: 'message.editText' }), statusFor('Send File', { operation: 'message.sendFile' }), statusFor('File Get Info', { operation: 'file.getInfo', passWhen: (json) => Boolean(json.filename || json.type || json.size || json.ok === true) }), statusFor('File Download', { operation: 'file.download', passWhen: (json, hasBinary) => hasBinary && Boolean(json.filename || json.type || json.size || json.ok === true) }), statusFor('Send Voice', { operation: 'message.sendVoice' }), statusFor('Answer Callback Query', { operation: 'callback.answerCallbackQuery', requiredInput: 'callbackQueryId' }), statusFor('Delete Text Message', { operation: 'message.deleteMessages.text' }), statusFor('Delete File Message', { operation: 'message.deleteMessages.file' }), statusFor('Delete Voice Message', { operation: 'message.deleteMessages.voice' })];\nconst input = firstItem('Prepare Matrix Inputs').json || {}; const summary = checks.reduce((acc, check) => { acc[check.status] = (acc[check.status] || 0) + 1; return acc; }, {});\nreturn [{ json: { runId: input.runId, label: input.label, chatIdProvided: Boolean(input.chatId), fileIdFallbackProvided: Boolean(input.fileId), callbackQueryIdProvided: Boolean(input.callbackQueryId), summary, checks } }];"
+      }
+    },
+    {
+      "id": "f6ce6e0e-19a4-48d9-8e0c-8566a8e30f9d",
+      "name": "VK Teams Trigger All Events",
+      "type": "n8n-nodes-vk-teams.vkTeamsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        520
+      ],
+      "parameters": {
+        "events": [
+          "message",
+          "editedMessage",
+          "deletedMessage",
+          "callbackQuery"
+        ],
+        "chatIds": "",
+        "userIds": "",
+        "downloadFiles": true
+      }
+    },
+    {
+      "id": "9d2bbac1-6065-41ba-a4fb-4dbe341cd74b",
+      "name": "Summarize Trigger Event",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [
+        320,
+        520
+      ],
+      "parameters": {
+        "mode": "runOnceForAllItems",
+        "language": "javaScript",
+        "jsCode": "return $input.all().map((item) => ({ json: { verificationArea: 'trigger.longPoll', eventType: item.json.type, eventId: item.json.eventId, chatId: item.json.payload?.chat?.chatId, userId: item.json.payload?.from?.userId, hasBinary: Boolean(item.binary && Object.keys(item.binary).length > 0), binaryFields: item.binary ? Object.keys(item.binary) : [], payloadKeys: Object.keys(item.json.payload || {}).sort() } }));"
+      }
+    }
+  ],
+  "connections": {
+    "Run VK Teams Verification Form": {
+      "main": [
+        [
+          {
+            "node": "Prepare Matrix Inputs",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Matrix Inputs": {
+      "main": [
+        [
+          {
+            "node": "Bot Get Self",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Bot Get Self": {
+      "main": [
+        [
+          {
+            "node": "Chat Get Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Chat Get Info": {
+      "main": [
+        [
+          {
+            "node": "Send Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Text": {
+      "main": [
+        [
+          {
+            "node": "Edit Text",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Edit Text": {
+      "main": [
+        [
+          {
+            "node": "Prepare File Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare File Binary": {
+      "main": [
+        [
+          {
+            "node": "Send File",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send File": {
+      "main": [
+        [
+          {
+            "node": "File Get Info",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File Get Info": {
+      "main": [
+        [
+          {
+            "node": "File Download",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "File Download": {
+      "main": [
+        [
+          {
+            "node": "Prepare Voice Binary",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Prepare Voice Binary": {
+      "main": [
+        [
+          {
+            "node": "Send Voice",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Send Voice": {
+      "main": [
+        [
+          {
+            "node": "Answer Callback Query",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Answer Callback Query": {
+      "main": [
+        [
+          {
+            "node": "Delete Text Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Text Message": {
+      "main": [
+        [
+          {
+            "node": "Delete File Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete File Message": {
+      "main": [
+        [
+          {
+            "node": "Delete Voice Message",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Delete Voice Message": {
+      "main": [
+        [
+          {
+            "node": "Build Verification Report",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "VK Teams Trigger All Events": {
+      "main": [
+        [
+          {
+            "node": "Summarize Trigger Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}
