@@ -1,6 +1,6 @@
 {
 	"name": "n8n-nodes-vk-teams",
-	"version": "0.1.1",
+	"version": "0.1.2",
 	"description": "n8n community nodes for VK Teams bots",
 	"license": "MIT",
 	"homepage": "https://github.com/pfrankov/n8n-nodes-vk-teams",
