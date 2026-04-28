@@ -7,6 +7,7 @@ import type {
 } from 'n8n-workflow';
 import { ApplicationError, BINARY_ENCODING, NodeConnectionTypes } from 'n8n-workflow';
 
+import { buildInlineKeyboardMarkup } from './actions/keyboard';
 import { executeAction } from './actions/execute';
 import { vkTeamsProperties } from './actions/descriptions';
 import { downloadBinary, sendJsonRequest, sendUploadRequest } from './shared/runtime';
@@ -23,6 +24,24 @@ function requireFileName(fileName: string | undefined): string {
 	}
 
 	return fileName;
+}
+
+function readInlineKeyboardMarkup(context: IExecuteFunctions, itemIndex: number): unknown {
+	const keyboard = context.getNodeParameter('keyboard', itemIndex, 'none') as string;
+
+	if (keyboard === 'inlineKeyboard') {
+		return buildInlineKeyboardMarkup(context.getNodeParameter('inlineKeyboard', itemIndex, {}));
+	}
+
+	if (keyboard === 'none') {
+		return undefined;
+	}
+
+	try {
+		return context.getNodeParameter('inlineKeyboardMarkup', itemIndex, undefined);
+	} catch {
+		return undefined;
+	}
 }
 
 export async function readBinaryFile(
@@ -84,10 +103,14 @@ export class VkTeams implements INodeType {
 				if (actionKey === 'message.sendText') {
 					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
 					input.text = this.getNodeParameter('text', itemIndex) as string;
+					input.parseMode = this.getNodeParameter('parseMode', itemIndex, '') as string;
+					input.inlineKeyboardMarkup = readInlineKeyboardMarkup(this, itemIndex);
 				} else if (actionKey === 'message.editText') {
 					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
 					input.msgId = this.getNodeParameter('msgId', itemIndex) as string;
 					input.text = this.getNodeParameter('text', itemIndex) as string;
+					input.parseMode = this.getNodeParameter('parseMode', itemIndex, '') as string;
+					input.inlineKeyboardMarkup = readInlineKeyboardMarkup(this, itemIndex);
 				} else if (actionKey === 'message.deleteMessages') {
 					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
 					input.msgId = (
@@ -97,6 +120,11 @@ export class VkTeams implements INodeType {
 					).map((item) => item.msgId);
 				} else if (actionKey === 'message.sendFile' || actionKey === 'message.sendVoice') {
 					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
+					input.inlineKeyboardMarkup = readInlineKeyboardMarkup(this, itemIndex);
+					if (actionKey === 'message.sendFile') {
+						input.caption = this.getNodeParameter('caption', itemIndex, '') as string;
+						input.parseMode = this.getNodeParameter('parseMode', itemIndex, '') as string;
+					}
 					input.binaryFile = await readBinaryFile(
 						this,
 						itemIndex,

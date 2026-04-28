@@ -15,6 +15,19 @@ type UploadRequest = {
 	fileContentType: string;
 };
 
+type TextMessageOptions = {
+	parseMode?: string;
+	inlineKeyboardMarkup?: unknown;
+};
+
+type FileMessageOptions = TextMessageOptions & {
+	caption?: string;
+};
+
+function compactParams(params: Record<string, unknown>): Record<string, unknown> {
+	return Object.fromEntries(Object.entries(params).filter(([, value]) => value !== undefined));
+}
+
 export function buildGetSelfRequest(): JsonRequest {
 	return {
 		requestType: 'json',
@@ -27,12 +40,12 @@ export function buildGetSelfRequest(): JsonRequest {
 export function buildSendTextRequest(input: {
 	chatId: string;
 	text: string;
-}): JsonRequest {
+} & TextMessageOptions): JsonRequest {
 	return {
 		requestType: 'json',
 		method: 'GET',
 		endpoint: '/messages/sendText',
-		params: input,
+		params: compactParams(input),
 	};
 }
 
@@ -40,12 +53,12 @@ export function buildEditTextRequest(input: {
 	chatId: string;
 	msgId: string;
 	text: string;
-}): JsonRequest {
+} & TextMessageOptions): JsonRequest {
 	return {
 		requestType: 'json',
 		method: 'GET',
 		endpoint: '/messages/editText',
-		params: input,
+		params: compactParams(input),
 	};
 }
 
@@ -95,14 +108,17 @@ export function buildSendFileUploadRequest(input: {
 	chatId: string;
 	fileName: string;
 	fileContentType: string;
-}): UploadRequest {
+} & FileMessageOptions): UploadRequest {
 	return {
 		requestType: 'upload',
 		method: 'POST',
 		endpoint: '/messages/sendFile',
-		params: {
+		params: compactParams({
 			chatId: input.chatId,
-		},
+			caption: input.caption,
+			parseMode: input.parseMode,
+			inlineKeyboardMarkup: input.inlineKeyboardMarkup,
+		}),
 		fileField: 'file',
 		fileName: input.fileName,
 		fileContentType: input.fileContentType,
@@ -113,14 +129,16 @@ export function buildSendVoiceUploadRequest(input: {
 	chatId: string;
 	fileName: string;
 	fileContentType: string;
+	inlineKeyboardMarkup?: unknown;
 }): UploadRequest {
 	return {
 		requestType: 'upload',
 		method: 'POST',
 		endpoint: '/messages/sendVoice',
-		params: {
+		params: compactParams({
 			chatId: input.chatId,
-		},
+			inlineKeyboardMarkup: input.inlineKeyboardMarkup,
+		}),
 		fileField: 'file',
 		fileName: input.fileName,
 		fileContentType: input.fileContentType,

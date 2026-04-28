@@ -94,6 +94,27 @@ test('createJsonRequestOptions serializes object params as JSON strings', () => 
 	);
 });
 
+test('createJsonRequestOptions serializes inline keyboard arrays as a single JSON string', () => {
+	assert.deepEqual(
+		createJsonRequestOptions({
+			baseUrl: 'https://myteam.example',
+			token: 'secret',
+			method: 'GET',
+			endpoint: '/messages/sendText',
+			params: {
+				chatId: 'chat-1',
+				text: 'hello',
+				inlineKeyboardMarkup: [[{ text: 'OK', callbackData: 'ok', style: 'primary' }]],
+			},
+		}),
+		{
+			method: 'GET',
+			url: 'https://myteam.example/bot/v1/messages/sendText?token=secret&chatId=chat-1&text=hello&inlineKeyboardMarkup=%5B%5B%7B%22text%22%3A%22OK%22%2C%22callbackData%22%3A%22ok%22%2C%22style%22%3A%22primary%22%7D%5D%5D',
+			json: true,
+		},
+	);
+});
+
 test('createUploadRequestOptions builds multipart request config', () => {
 	const file = Buffer.from('file');
 

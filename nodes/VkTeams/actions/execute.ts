@@ -49,6 +49,11 @@ type ActionInput = Record<string, unknown> & {
 	binaryFile?: InputBinaryFile;
 };
 
+type TextMessageOptions = {
+	parseMode?: 'MarkdownV2' | 'HTML';
+	inlineKeyboardMarkup?: unknown;
+};
+
 function requireString(value: unknown, name: string): string {
 	if (typeof value !== 'string' || value.length === 0) {
 		throw new Error(`${name} is required`);
@@ -63,6 +68,73 @@ function requireOptionalString(value: unknown, name: string): string {
 	}
 
 	return value;
+}
+
+function optionalParseMode(value: unknown): TextMessageOptions['parseMode'] {
+	if (value === undefined || value === null || value === '') {
+		return undefined;
+	}
+
+	if (value !== 'MarkdownV2' && value !== 'HTML') {
+		throw new Error('parseMode must be MarkdownV2 or HTML');
+	}
+
+	return value;
+}
+
+function optionalString(value: unknown): string | undefined {
+	if (value === undefined || value === null || value === '') {
+		return undefined;
+	}
+
+	return String(value);
+}
+
+function isEmptyMarkup(value: unknown): boolean {
+	return (
+		(Array.isArray(value) && value.length === 0) ||
+		(typeof value === 'object' &&
+			value !== null &&
+			!Array.isArray(value) &&
+			Object.keys(value).length === 0)
+	);
+}
+
+function optionalInlineKeyboardMarkup(value: unknown): unknown {
+	if (value === undefined || value === null || value === '') {
+		return undefined;
+	}
+
+	if (typeof value !== 'string') {
+		return isEmptyMarkup(value) ? undefined : value;
+	}
+
+	const trimmed = value.trim();
+	if (trimmed.length === 0) {
+		return undefined;
+	}
+
+	let parsed: unknown;
+	try {
+		parsed = JSON.parse(trimmed);
+	} catch {
+		throw new Error('inlineKeyboardMarkup must be valid JSON');
+	}
+
+	return isEmptyMarkup(parsed) ? undefined : parsed;
+}
+
+function textMessageOptions(input: ActionInput): TextMessageOptions {
+	return {
+		parseMode: optionalParseMode(input.parseMode),
+		inlineKeyboardMarkup: optionalInlineKeyboardMarkup(input.inlineKeyboardMarkup),
+	};
+}
+
+function keyboardOnlyOptions(input: ActionInput): Pick<TextMessageOptions, 'inlineKeyboardMarkup'> {
+	return {
+		inlineKeyboardMarkup: optionalInlineKeyboardMarkup(input.inlineKeyboardMarkup),
+	};
 }
 
 export async function executeAction(
@@ -105,11 +177,14 @@ export async function executeAction(
 						chatId,
 						fileName: input.binaryFile.fileName,
 						fileContentType: input.binaryFile.mimeType,
+						caption: optionalString(input.caption),
+						...textMessageOptions(input),
 					})
 				: buildSendVoiceUploadRequest({
 						chatId,
 						fileName: input.binaryFile.fileName,
 						fileContentType: input.binaryFile.mimeType,
+						...keyboardOnlyOptions(input),
 					});
 
 		const json = await deps.requestUpload(request, input.binaryFile);
@@ -126,6 +201,7 @@ export async function executeAction(
 			request = buildSendTextRequest({
 				chatId: requireString(input.chatId, 'chatId'),
 				text: requireString(input.text, 'text'),
+				...textMessageOptions(input),
 			});
 			break;
 		case 'message.editText':
@@ -133,6 +209,7 @@ export async function executeAction(
 				chatId: requireString(input.chatId, 'chatId'),
 				msgId: requireString(input.msgId, 'msgId'),
 				text: requireString(input.text, 'text'),
+				...textMessageOptions(input),
 			});
 			break;
 		case 'message.deleteMessages': {

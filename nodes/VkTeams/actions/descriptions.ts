@@ -20,6 +20,9 @@ const showBot = {
 	resource: ['bot'],
 };
 
+const textFormattingOperations = ['sendText', 'editText', 'sendFile'];
+const keyboardOperations = ['sendText', 'editText', 'sendFile', 'sendVoice'];
+
 export const vkTeamsProperties: INodeProperties[] = [
 	{
 		displayName: 'Resource',
@@ -86,9 +89,9 @@ export const vkTeamsProperties: INodeProperties[] = [
 		type: 'options',
 		noDataExpression: true,
 		displayOptions: { show: showMessage },
-			options: [
-				{ name: 'Delete Messages', value: 'deleteMessages', action: 'Delete messages' },
-				{ name: 'Edit Text', value: 'editText', action: 'Edit text in a message' },
+		options: [
+			{ name: 'Delete Messages', value: 'deleteMessages', action: 'Delete messages' },
+			{ name: 'Edit Text', value: 'editText', action: 'Edit text in a message' },
 			{ name: 'Send File', value: 'sendFile', action: 'Send a file' },
 			{ name: 'Send Text', value: 'sendText', action: 'Send a text message' },
 			{ name: 'Send Voice', value: 'sendVoice', action: 'Send a voice message' },
@@ -102,11 +105,11 @@ export const vkTeamsProperties: INodeProperties[] = [
 		default: '',
 		required: true,
 		displayOptions: {
-				show: {
-					operation: ['getInfo', 'sendText', 'sendFile', 'sendVoice', 'editText', 'deleteMessages'],
-					resource: ['chat', 'message'],
-				},
+			show: {
+				operation: ['getInfo', 'sendText', 'sendFile', 'sendVoice', 'editText', 'deleteMessages'],
+				resource: ['chat', 'message'],
 			},
+		},
 	},
 	{
 		displayName: 'Text',
@@ -122,18 +125,163 @@ export const vkTeamsProperties: INodeProperties[] = [
 		},
 	},
 	{
+		displayName: 'Parse Mode',
+		name: 'parseMode',
+		type: 'options',
+		default: '',
+		description: 'How VK Teams should parse message text or file caption formatting',
+		displayOptions: {
+			show: {
+				operation: textFormattingOperations,
+				resource: ['message'],
+			},
+		},
+		options: [
+			{ name: 'None', value: '' },
+			{ name: 'HTML', value: 'HTML' },
+			{ name: 'MarkdownV2', value: 'MarkdownV2' },
+		],
+	},
+	{
+		displayName: 'Keyboard',
+		name: 'keyboard',
+		type: 'options',
+		default: 'none',
+		description: 'Optional inline keyboard shown under the sent or edited message',
+		displayOptions: {
+			show: {
+				operation: keyboardOperations,
+				resource: ['message'],
+			},
+		},
+		options: [
+			{ name: 'Inline Keyboard', value: 'inlineKeyboard' },
+			{ name: 'None', value: 'none' },
+		],
+	},
+	{
+		displayName: 'Inline Keyboard',
+		name: 'inlineKeyboard',
+		placeholder: 'Add Keyboard Row',
+		description: 'Adds an inline keyboard with callback or URL buttons',
+		type: 'fixedCollection',
+		typeOptions: {
+			multipleValues: true,
+		},
+		default: {},
+		displayOptions: {
+			show: {
+				keyboard: ['inlineKeyboard'],
+				operation: keyboardOperations,
+				resource: ['message'],
+			},
+		},
+		options: [
+			{
+				displayName: 'Rows',
+				name: 'rows',
+				values: [
+					{
+						displayName: 'Row',
+						name: 'row',
+						type: 'fixedCollection',
+						placeholder: 'Add Button',
+						typeOptions: {
+							multipleValues: true,
+						},
+						default: {},
+						options: [
+							{
+								displayName: 'Buttons',
+								name: 'buttons',
+								values: [
+									{
+										displayName: 'Button Type',
+										name: 'buttonType',
+										type: 'options',
+										default: 'callbackData',
+										options: [
+											{ name: 'Callback Data', value: 'callbackData' },
+											{ name: 'URL', value: 'url' },
+										],
+									},
+									{
+										displayName: 'Callback Data',
+										name: 'callbackData',
+										type: 'string',
+										default: '',
+										description: 'Payload sent in callbackQuery when the button is pressed',
+										displayOptions: {
+											show: {
+												buttonType: ['callbackData'],
+											},
+										},
+									},
+									{
+										displayName: 'Style',
+										name: 'style',
+										type: 'options',
+										default: 'base',
+										options: [
+											{ name: 'Base', value: 'base' },
+											{ name: 'Primary', value: 'primary' },
+											{ name: 'Attention', value: 'attention' },
+										],
+									},
+									{
+										displayName: 'Text',
+										name: 'text',
+										type: 'string',
+										default: '',
+										required: true,
+										description: 'Label text shown on the button',
+									},
+									{
+										displayName: 'URL',
+										name: 'url',
+										type: 'string',
+										default: '',
+										description: 'URL opened when the button is pressed',
+										displayOptions: {
+											show: {
+												buttonType: ['url'],
+											},
+										},
+									},
+								],
+							},
+						],
+					},
+				],
+			},
+		],
+	},
+	{
+		displayName: 'Caption',
+		name: 'caption',
+		type: 'string',
+		default: '',
+		description: 'Optional caption for the uploaded file',
+		displayOptions: {
+			show: {
+				operation: ['sendFile'],
+				resource: ['message'],
+			},
+		},
+	},
+	{
 		displayName: 'Message ID',
 		name: 'msgId',
 		type: 'string',
 		default: '',
 		required: true,
 		displayOptions: {
-				show: {
-					operation: ['editText'],
-					resource: ['message'],
-				},
+			show: {
+				operation: ['editText'],
+				resource: ['message'],
 			},
 		},
+	},
 	{
 		displayName: 'Message IDs',
 		name: 'messageIds',

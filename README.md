@@ -108,6 +108,14 @@ npm install /absolute/path/to/n8n-nodes-vk-teams
 4. Заполните `Chat ID` и `Text`.
 5. Запустите workflow.
 
+Для форматирования текста в `Send Text` и `Edit Text` выберите `Parse Mode`: `HTML` или `MarkdownV2`. Если форматирование не нужно, оставьте `None`.
+
+Для inline-клавиатуры выберите `Keyboard` → `Inline Keyboard`, добавьте строки и кнопки через UI. Каждая кнопка содержит `Text`, `Button Type` (`Callback Data` или `URL`) и `Style`: `base`, `primary`, `attention`.
+
+Когда выбран `Button Type = Callback Data`, показывается поле `Callback Data`. Когда выбран `Button Type = URL`, показывается поле `URL`.
+
+Клавиатуры доступны в `Send Text`, `Edit Text`, `Send File` и `Send Voice`. Для `Send File` также можно указать `Caption`; `Parse Mode` применяется к тексту сообщения или подписи файла.
+
 ## Работа с файлами
 
 `message.sendFile` и `message.sendVoice` берут файл из binary input предыдущего узла. Укажите `Input Binary Field`, в котором лежит файл.

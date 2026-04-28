@@ -62,6 +62,8 @@ paths:
         - $ref: "#/components/parameters/token"
         - $ref: "#/components/parameters/chatId"
         - $ref: "#/components/parameters/text"
+        - $ref: "#/components/parameters/inlineKeyboardMarkup"
+        - $ref: "#/components/parameters/parseMode"
       responses:
         "200":
           description: Sent message id or logical API error.
@@ -81,6 +83,9 @@ paths:
       parameters:
         - $ref: "#/components/parameters/token"
         - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/caption"
+        - $ref: "#/components/parameters/inlineKeyboardMarkup"
+        - $ref: "#/components/parameters/parseMode"
       requestBody:
         required: true
         content:
@@ -107,6 +112,7 @@ paths:
       parameters:
         - $ref: "#/components/parameters/token"
         - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/inlineKeyboardMarkup"
       requestBody:
         required: true
         content:
@@ -133,6 +139,8 @@ paths:
         - $ref: "#/components/parameters/chatId"
         - $ref: "#/components/parameters/msgId"
         - $ref: "#/components/parameters/text"
+        - $ref: "#/components/parameters/inlineKeyboardMarkup"
+        - $ref: "#/components/parameters/parseMode"
       responses:
         "200":
           description: ok=true or logical API error.

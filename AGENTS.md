@@ -29,6 +29,8 @@ The package is intentionally split into trigger and action nodes, similar to Tel
 - For chat-like responsiveness, prefer a long-lived `trigger()` loop over a scheduler-driven n8n polling node.
 - Many VK Teams bot methods are `GET` endpoints with query parameters.
 - Bot authentication is sent as the `token` query parameter.
+- `sendText`, `editText`, `sendFile`, and `sendVoice` support optional `inlineKeyboardMarkup`; expose it as clickable rows/buttons, not as a raw JSON field.
+- `sendText`, `editText`, and `sendFile` support optional `parseMode` (`HTML` or `MarkdownV2`); for `sendFile`, it applies to the caption.
 - File uploads use `POST`, but ordinary method parameters still belong in query params; the multipart body is for the uploaded file payload.
 - File download is a two-step flow:
   1. `GET /files/getInfo`

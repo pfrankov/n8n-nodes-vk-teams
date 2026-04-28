@@ -6,6 +6,11 @@ function appendQueryValue(searchParams: URLSearchParams, key: string, value: unk
 		return;
 	}
 
+	if (key === 'inlineKeyboardMarkup') {
+		searchParams.append(key, typeof value === 'string' ? value : JSON.stringify(value));
+		return;
+	}
+
 	if (Array.isArray(value)) {
 		for (const item of value) {
 			appendQueryValue(searchParams, key, item);

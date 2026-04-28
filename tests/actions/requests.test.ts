@@ -31,6 +31,30 @@ test('buildSendTextRequest creates sendText endpoint and body', () => {
 	});
 });
 
+test('buildSendTextRequest includes parse mode and keyboard markup', () => {
+	const inlineKeyboardMarkup = [[{ text: 'OK', callbackData: 'ok', style: 'primary' }]];
+
+	assert.deepEqual(
+		buildSendTextRequest({
+			chatId: 'chat-1',
+			text: '<b>hello</b>',
+			parseMode: 'HTML',
+			inlineKeyboardMarkup,
+		}),
+		{
+			requestType: 'json',
+			method: 'GET',
+			endpoint: '/messages/sendText',
+			params: {
+				chatId: 'chat-1',
+				text: '<b>hello</b>',
+				parseMode: 'HTML',
+				inlineKeyboardMarkup,
+			},
+		},
+	);
+});
+
 test('buildEditTextRequest creates editText endpoint and body', () => {
 	assert.deepEqual(buildEditTextRequest({ chatId: 'chat-1', msgId: '7', text: 'fixed' }), {
 		requestType: 'json',
@@ -38,6 +62,32 @@ test('buildEditTextRequest creates editText endpoint and body', () => {
 		endpoint: '/messages/editText',
 		params: { chatId: 'chat-1', msgId: '7', text: 'fixed' },
 	});
+});
+
+test('buildEditTextRequest includes parse mode and keyboard markup', () => {
+	const inlineKeyboardMarkup = [[{ text: 'Done', callbackData: 'done' }]];
+
+	assert.deepEqual(
+		buildEditTextRequest({
+			chatId: 'chat-1',
+			msgId: '7',
+			text: '*fixed*',
+			parseMode: 'MarkdownV2',
+			inlineKeyboardMarkup,
+		}),
+		{
+			requestType: 'json',
+			method: 'GET',
+			endpoint: '/messages/editText',
+			params: {
+				chatId: 'chat-1',
+				msgId: '7',
+				text: '*fixed*',
+				parseMode: 'MarkdownV2',
+				inlineKeyboardMarkup,
+			},
+		},
+	);
 });
 
 test('buildDeleteMessagesRequest creates deleteMessages endpoint and body', () => {
@@ -106,6 +156,35 @@ test('buildSendFileUploadRequest creates upload definition', () => {
 	);
 });
 
+test('buildSendFileUploadRequest includes caption parse mode and keyboard', () => {
+	const inlineKeyboardMarkup = [[{ text: 'Open', url: 'https://teams.vk.com/botapi/' }]];
+
+	assert.deepEqual(
+		buildSendFileUploadRequest({
+			chatId: 'chat-1',
+			fileName: 'report.txt',
+			fileContentType: 'text/plain',
+			caption: '<b>report</b>',
+			parseMode: 'HTML',
+			inlineKeyboardMarkup,
+		}),
+		{
+			requestType: 'upload',
+			method: 'POST',
+			endpoint: '/messages/sendFile',
+			params: {
+				chatId: 'chat-1',
+				caption: '<b>report</b>',
+				parseMode: 'HTML',
+				inlineKeyboardMarkup,
+			},
+			fileField: 'file',
+			fileName: 'report.txt',
+			fileContentType: 'text/plain',
+		},
+	);
+});
+
 test('buildSendVoiceUploadRequest creates upload definition', () => {
 	assert.deepEqual(
 		buildSendVoiceUploadRequest({
@@ -119,6 +198,31 @@ test('buildSendVoiceUploadRequest creates upload definition', () => {
 			endpoint: '/messages/sendVoice',
 			params: {
 				chatId: 'chat-1',
+			},
+			fileField: 'file',
+			fileName: 'voice.ogg',
+			fileContentType: 'audio/ogg',
+		},
+	);
+});
+
+test('buildSendVoiceUploadRequest includes keyboard markup', () => {
+	const inlineKeyboardMarkup = [[{ text: 'Listen', callbackData: 'listen' }]];
+
+	assert.deepEqual(
+		buildSendVoiceUploadRequest({
+			chatId: 'chat-1',
+			fileName: 'voice.ogg',
+			fileContentType: 'audio/ogg',
+			inlineKeyboardMarkup,
+		}),
+		{
+			requestType: 'upload',
+			method: 'POST',
+			endpoint: '/messages/sendVoice',
+			params: {
+				chatId: 'chat-1',
+				inlineKeyboardMarkup,
 			},
 			fileField: 'file',
 			fileName: 'voice.ogg',
