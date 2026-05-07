@@ -1,5 +1,7 @@
 # n8n-nodes-vk-teams
 
+[![npm version](https://img.shields.io/npm/v/n8n-nodes-vk-teams.svg)](https://www.npmjs.com/package/n8n-nodes-vk-teams)
+
 `n8n-nodes-vk-teams` — community node package для [n8n](https://n8n.io), который подключает ботов **VK Teams / VK WorkSpace** через Bot API.
 
 Пакет добавляет два узла:
