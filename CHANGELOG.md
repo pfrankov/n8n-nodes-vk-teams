@@ -1,5 +1,23 @@
 # CHANGELOG
 
+## v0.1.3
+
+### Сопровождение
+
+- Публикация npm переведена на Trusted Publisher через GitHub Actions OIDC: workflow больше не использует `NPM_TOKEN` и публикует пакет без долгоживущего npm-токена.
+- В release workflow отключён npm cache для публикации, чтобы релизная сборка не зависела от сохранённого кэша GitHub Actions.
+
+Кому важно:
+
+- Мейнтейнерам, которые выпускают `n8n-nodes-vk-teams` через теги `v*`.
+- Пользователям, которые устанавливают свежие версии пакета из npm после релиза.
+
+Что проверить после обновления:
+
+1. В GitHub Actions на теге `v0.1.3` убедиться, что publish job проходит `npm ci`, `npm test`, `npm run lint`, `npm run lint:types`, `npm run build` и `npm publish` без секрета `NPM_TOKEN`.
+2. Установить опубликованную версию в тестовый self-hosted n8n и убедиться, что `VK Teams Trigger` и `VK Teams` загружаются.
+3. Проверить базовый сценарий: `VK Teams` -> `Bot` -> `Get Self` и отправку `Message` -> `Send Text`.
+
 ## v0.1.2
 
 ### Добавлено
