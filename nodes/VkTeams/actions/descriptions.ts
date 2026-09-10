@@ -156,14 +156,29 @@ export const vkTeamsProperties: INodeProperties[] = [
 		},
 		options: [
 			{ name: 'Inline Keyboard', value: 'inlineKeyboard' },
+			{ name: 'Inline Keyboard (JSON)', value: 'inlineKeyboardJson' },
 			{ name: 'None', value: 'none' },
 		],
+	},
+	{
+		displayName: 'Inline Keyboard (JSON)',
+		name: 'inlineKeyboardJson',
+		type: 'json',
+		default: '[]',
+		description: 'Dynamic keyboard as a Bot API array, a rows array, or an object containing rows',
+		displayOptions: {
+			show: {
+				keyboard: ['inlineKeyboardJson'],
+				operation: keyboardOperations,
+				resource: ['message'],
+			},
+		},
 	},
 	{
 		displayName: 'Inline Keyboard',
 		name: 'inlineKeyboard',
 		placeholder: 'Add Keyboard Row',
-		description: 'Adds an inline keyboard with callback or URL buttons',
+		description: 'Adds an inline keyboard with callback or URL buttons. For dynamic rows, use Inline Keyboard (JSON).',
 		type: 'fixedCollection',
 		typeOptions: {
 			multipleValues: true,
