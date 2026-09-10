@@ -118,6 +118,39 @@ npm install /absolute/path/to/n8n-nodes-vk-teams
 
 Клавиатуры доступны в `Send Text`, `Edit Text`, `Send File` и `Send Voice`. Для `Send File` также можно указать `Caption`; `Parse Mode` применяется к тексту сообщения или подписи файла.
 
+### Динамическая клавиатура
+
+Для переменного числа строк или кнопок выберите `Keyboard` → `Inline Keyboard (JSON)`. В поле `Inline Keyboard (JSON)` переключитесь на Expression и передайте данные предыдущего узла, например `{{ $json.rows }}`. В экспортированном workflow это выражение записывается как `={{ $json.rows }}`.
+
+Поддерживаются массив строк из редактора `[{"row":{"buttons":[...]}}]`, полный объект `{"rows":[...]}` и массив массивов кнопок Bot API. Можно передать объект/массив напрямую или его JSON-строку; `JSON.stringify` не обязателен.
+
+Пример данных для Code-узла:
+
+```javascript
+return [{
+  json: {
+    chatId: 'YOUR_TEST_CHAT_ID',
+    text: 'Кого пингануть?',
+    rows: ['dev', 'qa'].map(tag => ({
+      row: {
+        buttons: [{
+          buttonType: 'callbackData',
+          text: `@${tag}`,
+          callbackData: `ping:${tag}`,
+          style: 'primary',
+        }],
+      },
+    })),
+  },
+}];
+```
+
+В `VK Teams` укажите `Chat ID` → `{{ $json.chatId }}`, `Text` → `{{ $json.text }}` и `Inline Keyboard (JSON)` → `{{ $json.rows }}`. Для формата Bot API достаточно `[[{"text":"Открыть","url":"https://example.com"}]]`: тип кнопки определяется по `url` или `callbackData`. Без `buttonType` у кнопки должно быть только одно из этих действий; стиль по умолчанию — `base`.
+
+Не подставляйте выражение вместо всей коллекции `Inline Keyboard` или `Rows` в обычном редакторе: n8n может удалить его при нормализации `fixedCollection` ещё до выполнения ноды. Для таких workflow нужно явно переключиться на JSON-режим. Настроенные через UI клавиатуры менять не требуется.
+
+Пустая клавиатура не отправляется. Некорректный JSON или неполная кнопка приводят к ошибке до запроса к API, а не к успешной отправке без кнопок. Проверочный пример: [`vk-teams-dynamic-keyboard.workflow.json`](docs/workflows/vk-teams-dynamic-keyboard.workflow.json).
+
 ## Работа с файлами
 
 `message.sendFile` и `message.sendVoice` берут файл из binary input предыдущего узла. Укажите `Input Binary Field`, в котором лежит файл.
@@ -146,6 +179,8 @@ npm run lint
 npm run lint:types
 npm run build
 ```
+
+Эти проверки и `npm pack --dry-run` также запускаются в GitHub Actions для каждого pull request и изменений в `master`, без публикации пакета.
 
 Для запуска локального n8n с hot reload:
 

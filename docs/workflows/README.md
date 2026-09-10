@@ -39,6 +39,19 @@ Workflow теперь состоит из двух независимых вет
 `answerStatus` показывает, прошёл или упал `Answer Callback Query`,
 в чате появилось обычное сообщение `Callback received: ...` от узла `Send Callback Confirmation`.
 
+## Динамическое меню тегов
+
+Отдельный пример [`vk-teams-dynamic-keyboard.workflow.json`](vk-teams-dynamic-keyboard.workflow.json) проверяет JSON-режим, не меняя основную статическую матрицу.
+
+1. Импортируйте пример, выберите credentials `VK Teams API` у `Send Dynamic Menus` и замените `YOUR_TEST_CHAT_ID` в `Build Tag Menus` на выделенный тестовый чат.
+2. Выполните `Run Dynamic Keyboard Check`. Workflow отправит два сообщения: первое с одной кнопкой `@dev`, второе с двумя строками `@qa` и `@ops`.
+3. Проверьте кнопки именно в клиенте VK Teams. Ответ `ok` не доказывает, что клавиатура отображается.
+4. Через единственный активный `VK Teams Trigger` для этого бота проверьте нажатия: ожидаются `ping:dev`, `ping:qa`, `ping:ops`. Сам пример не запускает long polling.
+5. Для проверки остальных форматов замените `Inline Keyboard (JSON)` на выражение `{{ { rows: $json.rows } }}`, `{{ $json.rows.map(r => r.row.buttons) }}` или `{{ JSON.stringify($json.rows) }}`. Результат должен остаться тем же.
+6. Пустой массив `[]` должен отправить только текст. Кнопка без `text` или без действия должна завершиться ошибкой до API-запроса.
+
+Для регрессии `Edit Text`, `Send File` и `Send Voice` используйте основную матрицу: переключите соответствующую ноду на `Inline Keyboard (JSON)` и задайте `[[{"text":"JSON check","callbackData":"json:check"}]]`. Сохраните остальные параметры и входные binary data, проверьте кнопку в клиенте и событие `json:check`.
+
 ## Пересинхронизация артефакта
 
 1. Внесите изменения в workflow в редакторе n8n.

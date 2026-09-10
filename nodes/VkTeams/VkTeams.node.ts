@@ -33,6 +33,10 @@ function readInlineKeyboardMarkup(context: IExecuteFunctions, itemIndex: number)
 		return buildInlineKeyboardMarkup(context.getNodeParameter('inlineKeyboard', itemIndex, {}));
 	}
 
+	if (keyboard === 'inlineKeyboardJson') {
+		return buildInlineKeyboardMarkup(context.getNodeParameter('inlineKeyboardJson', itemIndex, '[]'));
+	}
+
 	if (keyboard === 'none') {
 		return undefined;
 	}

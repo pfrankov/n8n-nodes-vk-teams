@@ -1,0 +1,50 @@
+{
+  "name": "VK Teams dynamic keyboard verification",
+  "nodes": [
+    {
+      "parameters": {},
+      "id": "manual-trigger",
+      "name": "Run Dynamic Keyboard Check",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [0, 0]
+    },
+    {
+      "parameters": {
+        "jsCode": "const chatId = 'YOUR_TEST_CHAT_ID';\nif (chatId === 'YOUR_TEST_CHAT_ID') throw new Error('Set your test chatId in Build Tag Menus before running');\nreturn [['dev'], ['qa', 'ops']].map(tags => ({ json: { chatId, text: 'Кого пингануть? ' + tags.join(', '), rows: tags.map(tag => ({ row: { buttons: [{ buttonType: 'callbackData', text: '@' + tag, callbackData: 'ping:' + tag, style: 'primary' }] } })) } }));"
+      },
+      "id": "build-tag-menus",
+      "name": "Build Tag Menus",
+      "type": "n8n-nodes-base.code",
+      "typeVersion": 2,
+      "position": [240, 0]
+    },
+    {
+      "parameters": {
+        "resource": "message",
+        "operation": "sendText",
+        "chatId": "={{ $json.chatId }}",
+        "text": "={{ $json.text }}",
+        "keyboard": "inlineKeyboardJson",
+        "inlineKeyboardJson": "={{ $json.rows }}"
+      },
+      "id": "send-tag-menus",
+      "name": "Send Dynamic Menus",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [480, 0]
+    }
+  ],
+  "connections": {
+    "Run Dynamic Keyboard Check": {
+      "main": [[{ "node": "Build Tag Menus", "type": "main", "index": 0 }]]
+    },
+    "Build Tag Menus": {
+      "main": [[{ "node": "Send Dynamic Menus", "type": "main", "index": 0 }]]
+    }
+  },
+  "active": false,
+  "settings": { "executionOrder": "v1" },
+  "pinData": {},
+  "tags": []
+}

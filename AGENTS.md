@@ -29,7 +29,8 @@ The package is intentionally split into trigger and action nodes, similar to Tel
 - For chat-like responsiveness, prefer a long-lived `trigger()` loop over a scheduler-driven n8n polling node.
 - Many VK Teams bot methods are `GET` endpoints with query parameters.
 - Bot authentication is sent as the `token` query parameter.
-- `sendText`, `editText`, `sendFile`, and `sendVoice` support optional `inlineKeyboardMarkup`; expose it as clickable rows/buttons, not as a raw JSON field.
+- `sendText`, `editText`, `sendFile`, and `sendVoice` support optional `inlineKeyboardMarkup`. Keep the clickable rows/buttons editor and a separate opt-in `Inline Keyboard (JSON)` mode for dynamic collections. Both modes share validation and serialize to the Bot API array-of-arrays format.
+- Use a scalar `json` parameter for dynamic keyboard expressions: n8n can discard expressions assigned to whole `fixedCollection` objects or row arrays during parameter normalization. Accept Bot API arrays, UI row arrays, full UI collections, and their JSON strings; never evaluate expressions inside the serializer.
 - `sendText`, `editText`, and `sendFile` support optional `parseMode` (`HTML` or `MarkdownV2`); for `sendFile`, it applies to the caption.
 - File uploads use `POST`, but ordinary method parameters still belong in query params; the multipart body is for the uploaded file payload.
 - File download is a two-step flow:
@@ -101,6 +102,8 @@ Primary coverage should live in small unit tests for:
 
 Thin node wrappers are allowed to rely on the pure modules above; do not push most logic into n8n runtime methods.
 
+Keyboard regression tests must also exercise n8n parameter normalization and expression evaluation before inspecting the outgoing query string. Already-resolved `getNodeParameter` mocks alone cannot detect lost collection expressions.
+
 Each test file should begin with plain-language test cases when the scenario set is not obvious.
 
 Avoid names that suggest scheduler-driven polling for the trigger implementation. This trigger uses a long-lived `trigger()` loop, so internal helper names should reflect long polling rather than `poll()`.
@@ -113,6 +116,8 @@ Before claiming work is complete, run fresh:
 - `npm run lint`
 - `npm run lint:types`
 - `npm run build`
+
+The PR/master CI workflow runs this verification set and `npm pack --dry-run` with read-only repository permissions. It must not publish packages or require live bot credentials.
 
 When touching node registration, credentials, or packaging, also perform a local load check with `npm run dev` and confirm both nodes appear in n8n.
 
@@ -148,7 +153,7 @@ If live VK Teams credentials are available, verify API alignment against a real 
 - `CHANGELOG.md` is the release-facing source for user-visible changes since the previous tag.
 - `AGENTS.md` is the engineering-facing source for durable product scope, architecture rules, verification expectations, and documentation policy. Do not store one-off release notes or temporary rollout details here.
 - `docs/vk-teams-bot-api.openapi.yaml` is the supported Bot API contract for this package. Update it when adding, removing, or changing supported endpoints, parameters, payloads, multipart behavior, response shapes, or event shapes.
-- `docs/workflows/vk-teams-node-verification.workflow.json` and `docs/workflows/README.md` are the reusable manual verification artifacts for real-bot checks. Update them when node surface, required credentials, expected outputs, or the live verification flow changes.
+- `docs/workflows/vk-teams-node-verification.workflow.json` and `docs/workflows/README.md` are the reusable manual verification artifacts for real-bot checks. Update them when node surface, required credentials, expected outputs, or the live verification flow changes. The separate `vk-teams-dynamic-keyboard.workflow.json` covers variable-length keyboard expressions without changing the existing verification matrix.
 - Node descriptions and metadata are part of the public documentation surface. When changing display names, options, defaults, resource names, operation names, credential fields, icons, or node registration, keep README examples, changelog wording, tests, and package metadata aligned.
 - When supported trigger events or action operations change, update all of these in the same work item: `Supported v1 Scope` in this file, README supported lists, node descriptions, tests, and changelog if the change is release-relevant.
 - When known limitations change, update `Known Product Limits` here and the README limitations section. If users need to notice the change during upgrade, also update `CHANGELOG.md`.

@@ -1,25 +1,17 @@
-type KeyboardButtonInput = {
-	text?: unknown;
-	buttonType?: unknown;
-	callbackData?: unknown;
-	url?: unknown;
-	style?: unknown;
-};
-
-type KeyboardCollection = {
-	rows?: Array<{
-		row?: {
-			buttons?: KeyboardButtonInput[];
-		};
-	}>;
-};
-
 type KeyboardButton = {
 	text: string;
 	callbackData?: string;
 	url?: string;
 	style?: 'base' | 'primary' | 'attention';
 };
+
+function requireObject(value: unknown, name: string): Record<string, unknown> {
+	if (value === null || typeof value !== 'object' || Array.isArray(value)) {
+		throw new Error(`${name} must be an object`);
+	}
+
+	return value as Record<string, unknown>;
+}
 
 function requireNonEmptyString(value: unknown, name: string): string {
 	if (typeof value !== 'string' || value.trim().length === 0) {
@@ -41,10 +33,29 @@ function normalizeButtonStyle(value: unknown): KeyboardButton['style'] {
 	return value;
 }
 
-function buildKeyboardButton(button: KeyboardButtonInput, rowIndex: number, buttonIndex: number): KeyboardButton {
+function getButtonType(button: Record<string, unknown>, label: string): 'url' | 'callbackData' {
+	if (button.buttonType !== undefined) {
+		if (button.buttonType !== 'url' && button.buttonType !== 'callbackData') {
+			throw new Error(`${label} type must be callbackData or url`);
+		}
+		return button.buttonType;
+	}
+
+	if (button.url !== undefined && button.url !== '') {
+		if (button.callbackData !== undefined && button.callbackData !== '') {
+			throw new Error(`${label} must have callback data or URL, not both`);
+		}
+		return 'url';
+	}
+
+	return 'callbackData';
+}
+
+function buildKeyboardButton(input: unknown, rowIndex: number, buttonIndex: number): KeyboardButton {
 	const label = `Keyboard button ${rowIndex + 1}:${buttonIndex + 1}`;
+	const button = requireObject(input, label);
 	const text = requireNonEmptyString(button.text, `${label} text`);
-	const buttonType = button.buttonType === 'url' ? 'url' : 'callbackData';
+	const buttonType = getButtonType(button, label);
 	const style = normalizeButtonStyle(button.style);
 
 	if (buttonType === 'url') {
@@ -62,17 +73,69 @@ function buildKeyboardButton(button: KeyboardButtonInput, rowIndex: number, butt
 	};
 }
 
-export function buildInlineKeyboardMarkup(input: unknown): KeyboardButton[][] | undefined {
-	if (input === undefined || input === null || typeof input !== 'object' || Array.isArray(input)) {
+function parseKeyboardInput(input: unknown): unknown {
+	if (typeof input !== 'string') {
+		return input;
+	}
+	if (input.trim() === '') {
 		return undefined;
 	}
 
-	const rows = (input as KeyboardCollection).rows ?? [];
-	const keyboard = rows
-		.map((row, rowIndex) => {
-			const buttons = row.row?.buttons ?? [];
-			return buttons.map((button, buttonIndex) => buildKeyboardButton(button, rowIndex, buttonIndex));
-		})
+	try {
+		return JSON.parse(input) as unknown;
+	} catch {
+		throw new Error('Inline keyboard must be valid JSON');
+	}
+}
+
+function getKeyboardRows(input: unknown): unknown[] {
+	const value = parseKeyboardInput(input);
+	if (value === undefined || value === null) {
+		return [];
+	}
+	if (Array.isArray(value)) {
+		return value;
+	}
+
+	const collection = requireObject(value, 'Inline keyboard');
+	if (Object.keys(collection).length === 0) {
+		return [];
+	}
+	if (!Array.isArray(collection.rows)) {
+		throw new Error('Inline keyboard rows must be an array');
+	}
+
+	return collection.rows;
+}
+
+function getRowButtons(input: unknown, rowIndex: number): unknown[] {
+	if (Array.isArray(input)) {
+		return input;
+	}
+
+	const label = `Keyboard row ${rowIndex + 1}`;
+	const row = requireObject(input, label);
+	if (Object.keys(row).length === 0) {
+		return [];
+	}
+	if (row.row === undefined) {
+		throw new Error(`${label} must contain row.buttons`);
+	}
+	const buttons = requireObject(row.row, label).buttons ?? [];
+	if (!Array.isArray(buttons)) {
+		throw new Error(`${label} buttons must be an array`);
+	}
+
+	return buttons;
+}
+
+export function buildInlineKeyboardMarkup(input: unknown): KeyboardButton[][] | undefined {
+	const keyboard = getKeyboardRows(input)
+		.map((row, rowIndex) =>
+			getRowButtons(row, rowIndex).map((button, buttonIndex) =>
+				buildKeyboardButton(button, rowIndex, buttonIndex),
+			),
+		)
 		.filter((row) => row.length > 0);
 
 	return keyboard.length > 0 ? keyboard : undefined;
