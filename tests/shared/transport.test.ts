@@ -1,7 +1,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
-import { createJsonRequestOptions, createUploadRequestOptions } from '../../nodes/VkTeams/shared/transport';
+import { createJsonRequestOptions } from '../../nodes/VkTeams/shared/transport';
 
 test('createJsonRequestOptions builds authenticated request config', () => {
 	assert.deepEqual(
@@ -16,6 +16,8 @@ test('createJsonRequestOptions builds authenticated request config', () => {
 			method: 'GET',
 			url: 'https://myteam.example/bot/v1/messages/sendText?token=secret&chatId=chat-1&text=hello',
 			json: true,
+			disableFollowRedirect: true,
+			timeout: 300_000,
 		},
 	);
 });
@@ -33,6 +35,8 @@ test('createJsonRequestOptions omits empty params', () => {
 			method: 'GET',
 			url: 'https://myteam.example/bot/v1/self/get?token=secret',
 			json: true,
+			disableFollowRedirect: true,
+			timeout: 300_000,
 		},
 	);
 });
@@ -50,6 +54,8 @@ test('createJsonRequestOptions serializes arrays as repeated query parameters', 
 			method: 'GET',
 			url: 'https://myteam.example/bot/v1/messages/deleteMessages?token=secret&chatId=chat-1&msgId=7&msgId=8',
 			json: true,
+			disableFollowRedirect: true,
+			timeout: 300_000,
 		},
 	);
 });
@@ -67,6 +73,8 @@ test('createJsonRequestOptions omits undefined optional parameters', () => {
 			method: 'GET',
 			url: 'https://myteam.example/bot/v1/messages/answerCallbackQuery?token=secret&queryId=query-1',
 			json: true,
+			disableFollowRedirect: true,
+			timeout: 300_000,
 		},
 	);
 });
@@ -90,6 +98,8 @@ test('createJsonRequestOptions serializes object params as JSON strings', () => 
 			method: 'GET',
 			url: 'https://myteam.example/bot/v1/messages/sendText?token=secret&chatId=chat-1&text=hello&format=%7B%22bold%22%3A%5B%7B%22offset%22%3A0%2C%22length%22%3A5%7D%5D%7D',
 			json: true,
+			disableFollowRedirect: true,
+			timeout: 300_000,
 		},
 	);
 });
@@ -111,37 +121,24 @@ test('createJsonRequestOptions serializes inline keyboard arrays as a single JSO
 			method: 'GET',
 			url: 'https://myteam.example/bot/v1/messages/sendText?token=secret&chatId=chat-1&text=hello&inlineKeyboardMarkup=%5B%5B%7B%22text%22%3A%22OK%22%2C%22callbackData%22%3A%22ok%22%2C%22style%22%3A%22primary%22%7D%5D%5D',
 			json: true,
+			disableFollowRedirect: true,
+			timeout: 300_000,
 		},
 	);
 });
 
-test('createUploadRequestOptions builds multipart request config', () => {
-	const file = Buffer.from('file');
-
-	assert.deepEqual(
-		createUploadRequestOptions({
-			baseUrl: 'https://myteam.example',
-			token: 'secret',
-			endpoint: '/messages/sendFile',
-			params: { chatId: 'chat-1' },
-			fileField: 'file',
-			fileName: 'report.txt',
-			fileContentType: 'text/plain',
-			file,
-		}),
-		{
-			method: 'POST',
-			url: 'https://myteam.example/bot/v1/messages/sendFile?token=secret&chatId=chat-1',
-			formData: {
-				file: {
-					value: file,
-					options: {
-						filename: 'report.txt',
-						contentType: 'text/plain',
-					},
-				},
-			},
-			json: true,
-		},
+test('POST query is encoded without creating an unused multipart descriptor', () => {
+	const options = createJsonRequestOptions({
+		baseUrl: 'https://myteam.example',
+		token: 'secret',
+		method: 'POST',
+		endpoint: '/messages/sendFile',
+		params: { chatId: 'chat-1' },
+	});
+	assert.equal(options.method, 'POST');
+	assert.equal(
+		options.url,
+		'https://myteam.example/bot/v1/messages/sendFile?token=secret&chatId=chat-1',
 	);
+	assert.equal('formData' in options, false);
 });

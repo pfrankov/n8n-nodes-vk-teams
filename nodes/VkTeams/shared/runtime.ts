@@ -6,7 +6,9 @@ import type {
 } from 'n8n-workflow';
 import { ApplicationError } from 'n8n-workflow';
 
-import { createJsonRequestOptions, createUploadRequestOptions } from './transport';
+import { createJsonRequestOptions } from './transport';
+import type { BinaryFile, JsonRequest, UploadRequest } from './types';
+import { httpUrl } from './validation';
 
 type RequestContext = IExecuteFunctions | IPollFunctions | ITriggerFunctions;
 
@@ -15,29 +17,8 @@ type Credentials = {
 	baseUrl: string;
 };
 
-type JsonRequest = {
-	method: 'GET' | 'POST';
-	endpoint: string;
-	params: Record<string, unknown>;
-	abortSignal?: AbortSignal;
-};
-
-type UploadRequest = {
-	endpoint: string;
-	params: Record<string, unknown>;
-	fileField: string;
-	fileName: string;
-	fileContentType: string;
-};
-
-type BinaryFile = {
-	data: Buffer | NodeJS.ReadableStream;
-	fileName: string;
-	mimeType: string;
-};
-
 function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function getStringField(record: Record<string, unknown>, field: string): string | undefined {
@@ -46,11 +27,7 @@ function getStringField(record: Record<string, unknown>, field: string): string 
 	return typeof value === 'string' && value.length > 0 ? value : undefined;
 }
 
-function getVkTeamsApiErrorMessage(response: unknown): string | undefined {
-	if (!isRecord(response)) {
-		return undefined;
-	}
-
+function getVkTeamsApiErrorMessage(response: Record<string, unknown>): string | undefined {
 	const description = getStringField(response, 'description');
 	const error = getStringField(response, 'error');
 
@@ -58,14 +35,24 @@ function getVkTeamsApiErrorMessage(response: unknown): string | undefined {
 		return description ?? error ?? 'Request failed';
 	}
 
-	if (response.ok !== true && description !== undefined) {
-		return description;
+	if (response.ok !== true) {
+		return description ?? error;
 	}
 
 	return undefined;
 }
 
 export function assertSuccessfulVkTeamsResponse<T>(response: T): T {
+	if (
+		!isRecord(response) ||
+		Object.keys(response).length === 0 ||
+		(Object.prototype.hasOwnProperty.call(response, 'ok') && typeof response.ok !== 'boolean')
+	) {
+		throw new ApplicationError(
+			'VK Teams API returned an invalid response: expected a nonempty object and a boolean ok flag when present',
+		);
+	}
+
 	const errorMessage = getVkTeamsApiErrorMessage(response);
 
 	if (errorMessage !== undefined) {
@@ -78,7 +65,7 @@ export function assertSuccessfulVkTeamsResponse<T>(response: T): T {
 export async function sendJsonRequest(
 	context: RequestContext,
 	credentials: Credentials,
-	request: JsonRequest,
+	request: Omit<JsonRequest, 'requestType'> & { abortSignal?: AbortSignal },
 ) {
 	const options = createJsonRequestOptions({
 		baseUrl: credentials.baseUrl,
@@ -100,20 +87,9 @@ export async function sendJsonRequest(
 export async function sendUploadRequest(
 	context: RequestContext,
 	credentials: Credentials,
-	request: UploadRequest,
+	request: Omit<UploadRequest, 'method' | 'requestType'>,
 	binaryFile: BinaryFile,
 ) {
-	const options = createUploadRequestOptions({
-		baseUrl: credentials.baseUrl,
-		token: credentials.accessToken,
-		endpoint: request.endpoint,
-		params: request.params,
-		fileField: request.fileField,
-		fileName: request.fileName,
-		fileContentType: request.fileContentType,
-		file: binaryFile.data,
-	});
-
 	const fileBuffer = Buffer.isBuffer(binaryFile.data)
 		? binaryFile.data
 		: await streamToBuffer(binaryFile.data);
@@ -124,10 +100,20 @@ export async function sendUploadRequest(
 		request.fileName,
 	);
 
-	const response = await fetch(options.url, {
-		method: 'POST',
-		body: form,
-	}).then(async (apiResponse) => (await apiResponse.json()) as unknown);
+	// Let the platform encode multipart; pass bytes through n8n's HTTP helper so
+	// its proxy, TLS and SSRF policies also apply to uploads. No multipart dependency.
+	const encoded = new Response(form);
+	const response = await context.helpers.httpRequest({
+		...createJsonRequestOptions({
+			baseUrl: credentials.baseUrl,
+			token: credentials.accessToken,
+			method: 'POST',
+			endpoint: request.endpoint,
+			params: request.params,
+		}),
+		headers: { 'Content-Type': encoded.headers.get('content-type')! },
+		body: Buffer.from(await encoded.arrayBuffer()),
+	});
 
 	return assertSuccessfulVkTeamsResponse(response);
 }
@@ -145,7 +131,8 @@ async function streamToBuffer(stream: NodeJS.ReadableStream): Promise<Buffer> {
 export async function downloadBinary(context: RequestContext, url: string) {
 	const data = (await context.helpers.httpRequest({
 		method: 'GET',
-		url,
+		url: httpUrl(url, 'download URL'),
+		timeout: 300_000,
 		json: false,
 		encoding: 'arraybuffer',
 	} as IHttpRequestOptions)) as Buffer;

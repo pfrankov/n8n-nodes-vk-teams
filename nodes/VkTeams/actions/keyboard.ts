@@ -1,3 +1,5 @@
+import { stringValue } from '../shared/validation';
+
 type KeyboardButton = {
 	text: string;
 	callbackData?: string;
@@ -11,14 +13,6 @@ function requireObject(value: unknown, name: string): Record<string, unknown> {
 	}
 
 	return value as Record<string, unknown>;
-}
-
-function requireNonEmptyString(value: unknown, name: string): string {
-	if (typeof value !== 'string' || value.trim().length === 0) {
-		throw new Error(`${name} is required`);
-	}
-
-	return value;
 }
 
 function normalizeButtonStyle(value: unknown): KeyboardButton['style'] {
@@ -51,24 +45,28 @@ function getButtonType(button: Record<string, unknown>, label: string): 'url' | 
 	return 'callbackData';
 }
 
-function buildKeyboardButton(input: unknown, rowIndex: number, buttonIndex: number): KeyboardButton {
+function buildKeyboardButton(
+	input: unknown,
+	rowIndex: number,
+	buttonIndex: number,
+): KeyboardButton {
 	const label = `Keyboard button ${rowIndex + 1}:${buttonIndex + 1}`;
 	const button = requireObject(input, label);
-	const text = requireNonEmptyString(button.text, `${label} text`);
+	const text = stringValue(button.text, `${label} text`);
 	const buttonType = getButtonType(button, label);
 	const style = normalizeButtonStyle(button.style);
 
 	if (buttonType === 'url') {
 		return {
 			text,
-			url: requireNonEmptyString(button.url, `${label} URL`),
+			url: stringValue(button.url, `${label} URL`),
 			style,
 		};
 	}
 
 	return {
 		text,
-		callbackData: requireNonEmptyString(button.callbackData, `${label} callback data`),
+		callbackData: stringValue(button.callbackData, `${label} callback data`),
 		style,
 	};
 }
@@ -130,13 +128,11 @@ function getRowButtons(input: unknown, rowIndex: number): unknown[] {
 }
 
 export function buildInlineKeyboardMarkup(input: unknown): KeyboardButton[][] | undefined {
-	const keyboard = getKeyboardRows(input)
-		.map((row, rowIndex) =>
-			getRowButtons(row, rowIndex).map((button, buttonIndex) =>
-				buildKeyboardButton(button, rowIndex, buttonIndex),
-			),
-		)
-		.filter((row) => row.length > 0);
+	const keyboard = Array.from(getKeyboardRows(input), (row, rowIndex) =>
+		Array.from(getRowButtons(row, rowIndex), (button, buttonIndex) =>
+			buildKeyboardButton(button, rowIndex, buttonIndex),
+		),
+	).filter((row) => row.length > 0);
 
 	return keyboard.length > 0 ? keyboard : undefined;
 }

@@ -1,5 +1,5 @@
 import { buildApiUrl } from './url';
-import type { JsonRequestInput, UploadRequestInput } from './types';
+import type { JsonRequestInput } from './types';
 
 function appendQueryValue(searchParams: URLSearchParams, key: string, value: unknown): void {
 	if (value === undefined) {
@@ -26,11 +26,16 @@ function appendQueryValue(searchParams: URLSearchParams, key: string, value: unk
 	searchParams.append(key, String(value));
 }
 
-function buildUrlWithQuery(baseUrl: string, endpoint: string, params: Record<string, unknown>): string {
-	const searchParams = new URLSearchParams();
+function buildUrlWithQuery(
+	baseUrl: string,
+	endpoint: string,
+	token: string,
+	params: Record<string, unknown>,
+): string {
+	const searchParams = new URLSearchParams({ token });
 
 	for (const [key, value] of Object.entries(params)) {
-		appendQueryValue(searchParams, key, value);
+		if (key !== 'token') appendQueryValue(searchParams, key, value);
 	}
 
 	const queryString = searchParams.toString();
@@ -40,38 +45,11 @@ function buildUrlWithQuery(baseUrl: string, endpoint: string, params: Record<str
 }
 
 export function createJsonRequestOptions(input: JsonRequestInput) {
-	const options = {
-		method: input.method,
-		url: buildUrlWithQuery(input.baseUrl, input.endpoint, {
-			token: input.token,
-			...input.params,
-		}),
-		json: true,
-	} as {
-		method: string;
-		url: string;
-		json: true;
-	};
-
-	return options;
-}
-
-export function createUploadRequestOptions(input: UploadRequestInput) {
 	return {
-		method: 'POST',
-		url: buildUrlWithQuery(input.baseUrl, input.endpoint, {
-			token: input.token,
-			...input.params,
-		}),
-		formData: {
-			[input.fileField]: {
-				value: input.file,
-				options: {
-					filename: input.fileName,
-					contentType: input.fileContentType,
-				},
-			},
-		},
+		method: input.method,
+		url: buildUrlWithQuery(input.baseUrl, input.endpoint, input.token, input.params),
 		json: true as const,
+		disableFollowRedirect: true,
+		timeout: 300_000,
 	};
 }

@@ -1,3 +1,4 @@
+import { readActionInput } from './actions/sdk.input';
 import type {
 	IDataObject,
 	IExecuteFunctions,
@@ -7,16 +8,11 @@ import type {
 } from 'n8n-workflow';
 import { ApplicationError, BINARY_ENCODING, NodeConnectionTypes } from 'n8n-workflow';
 
-import { buildInlineKeyboardMarkup } from './actions/keyboard';
 import { executeAction } from './actions/execute';
 import { vkTeamsProperties } from './actions/descriptions';
 import { downloadBinary, sendJsonRequest, sendUploadRequest } from './shared/runtime';
 
-type BinaryFile = {
-	data: Buffer | NodeJS.ReadableStream;
-	fileName: string;
-	mimeType: string;
-};
+import type { BinaryFile } from './shared/types';
 
 function requireFileName(fileName: string | undefined): string {
 	if (!fileName) {
@@ -26,28 +22,6 @@ function requireFileName(fileName: string | undefined): string {
 	return fileName;
 }
 
-function readInlineKeyboardMarkup(context: IExecuteFunctions, itemIndex: number): unknown {
-	const keyboard = context.getNodeParameter('keyboard', itemIndex, 'none') as string;
-
-	if (keyboard === 'inlineKeyboard') {
-		return buildInlineKeyboardMarkup(context.getNodeParameter('inlineKeyboard', itemIndex, {}));
-	}
-
-	if (keyboard === 'inlineKeyboardJson') {
-		return buildInlineKeyboardMarkup(context.getNodeParameter('inlineKeyboardJson', itemIndex, '[]'));
-	}
-
-	if (keyboard === 'none') {
-		return undefined;
-	}
-
-	try {
-		return context.getNodeParameter('inlineKeyboardMarkup', itemIndex, undefined);
-	} catch {
-		return undefined;
-	}
-}
-
 export async function readBinaryFile(
 	context: IExecuteFunctions,
 	itemIndex: number,
@@ -55,17 +29,12 @@ export async function readBinaryFile(
 ): Promise<BinaryFile> {
 	const binaryData = context.helpers.assertBinaryData(itemIndex, binaryPropertyName);
 
-	if (binaryData.id) {
-		return {
-			data: await context.helpers.getBinaryDataBuffer(itemIndex, binaryPropertyName),
-			fileName: requireFileName(binaryData.fileName),
-			mimeType: binaryData.mimeType ?? 'application/octet-stream',
-		};
-	}
-
+	const fileName = requireFileName(binaryData.fileName);
 	return {
-		data: Buffer.from(binaryData.data, BINARY_ENCODING),
-		fileName: requireFileName(binaryData.fileName),
+		data: binaryData.id
+			? await context.helpers.getBinaryDataBuffer(itemIndex, binaryPropertyName)
+			: Buffer.from(binaryData.data, BINARY_ENCODING),
+		fileName,
 		mimeType: binaryData.mimeType ?? 'application/octet-stream',
 	};
 }
@@ -102,51 +71,20 @@ export class VkTeams implements INodeType {
 				const resource = this.getNodeParameter('resource', itemIndex) as string;
 				const operation = this.getNodeParameter('operation', itemIndex) as string;
 				const actionKey = `${resource}.${operation}`;
-				const input: Record<string, unknown> = {};
-
-				if (actionKey === 'message.sendText') {
-					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
-					input.text = this.getNodeParameter('text', itemIndex) as string;
-					input.parseMode = this.getNodeParameter('parseMode', itemIndex, '') as string;
-					input.inlineKeyboardMarkup = readInlineKeyboardMarkup(this, itemIndex);
-				} else if (actionKey === 'message.editText') {
-					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
-					input.msgId = this.getNodeParameter('msgId', itemIndex) as string;
-					input.text = this.getNodeParameter('text', itemIndex) as string;
-					input.parseMode = this.getNodeParameter('parseMode', itemIndex, '') as string;
-					input.inlineKeyboardMarkup = readInlineKeyboardMarkup(this, itemIndex);
-				} else if (actionKey === 'message.deleteMessages') {
-					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
-					input.msgId = (
-						(this.getNodeParameter('messageIds', itemIndex) as {
-							values?: Array<{ msgId: string }>;
-						}).values ?? []
-					).map((item) => item.msgId);
-				} else if (actionKey === 'message.sendFile' || actionKey === 'message.sendVoice') {
-					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
-					input.inlineKeyboardMarkup = readInlineKeyboardMarkup(this, itemIndex);
-					if (actionKey === 'message.sendFile') {
-						input.caption = this.getNodeParameter('caption', itemIndex, '') as string;
-						input.parseMode = this.getNodeParameter('parseMode', itemIndex, '') as string;
-					}
+				const read = (name: string, fallback?: unknown) =>
+					this.getNodeParameter(name, itemIndex, fallback);
+				const input = readActionInput(resource, operation, read);
+				if (input.fileSource === 'binary' || actionKey === 'chat.setAvatar') {
 					input.binaryFile = await readBinaryFile(
 						this,
 						itemIndex,
-						this.getNodeParameter('binaryPropertyName', itemIndex) as string,
+						read('binaryPropertyName') as string,
 					);
-				} else if (actionKey === 'callback.answerCallbackQuery') {
-					input.queryId = this.getNodeParameter('queryId', itemIndex) as string;
-					input.text = this.getNodeParameter('text', itemIndex, '') as string;
-				} else if (actionKey === 'chat.getInfo') {
-					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
-				} else if (actionKey === 'file.getInfo' || actionKey === 'file.download') {
-					input.fileId = this.getNodeParameter('fileId', itemIndex) as string;
 				}
 
 				const result = await executeAction(
 					{
-						requestJson: async (request) =>
-							await sendJsonRequest(this, credentials, request),
+						requestJson: async (request) => await sendJsonRequest(this, credentials, request),
 						requestUpload: async (request, binaryFile) =>
 							await sendUploadRequest(this, credentials, request, binaryFile),
 						downloadBinary: async (url) => await downloadBinary(this, url),

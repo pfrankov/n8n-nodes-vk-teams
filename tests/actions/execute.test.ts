@@ -132,7 +132,7 @@ test('executeAction rejects invalid text options', async () => {
 			text: 'hello',
 			inlineKeyboardMarkup: '[broken',
 		}),
-		/inlineKeyboardMarkup must be valid JSON/,
+		/Inline keyboard must be valid JSON/,
 	);
 });
 
@@ -176,7 +176,9 @@ test('executeAction uploads file for sendFile', async () => {
 			chatId: 'chat-1',
 			caption: '<b>report</b>',
 			parseMode: 'HTML',
-			inlineKeyboardMarkup: [[{ text: 'Open', url: 'https://teams.vk.com/botapi/' }]],
+			inlineKeyboardMarkup: [
+				[{ text: 'Open', url: 'https://teams.vk.com/botapi/', style: 'base' }],
+			],
 		},
 		fileField: 'file',
 		fileName: 'report.txt',
@@ -224,7 +226,7 @@ test('executeAction uploads voice with keyboard markup', async () => {
 		endpoint: '/messages/sendVoice',
 		params: {
 			chatId: 'chat-1',
-			inlineKeyboardMarkup: [[{ text: 'Listen', callbackData: 'listen' }]],
+			inlineKeyboardMarkup: [[{ text: 'Listen', callbackData: 'listen', style: 'base' }]],
 		},
 		fileField: 'file',
 		fileName: 'voice.ogg',

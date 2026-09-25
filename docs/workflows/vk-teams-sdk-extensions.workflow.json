@@ -1,0 +1,260 @@
+{
+  "name": "VK Teams — SDK message and thread examples",
+  "active": false,
+  "nodes": [
+    {
+      "id": "manual",
+      "name": "Run SDK Examples",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "reply-with-quote",
+      "name": "Reply With Quote",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendText",
+        "chatId": "TEST_CHAT_ID",
+        "text": "Ответ на сообщение",
+        "sendMode": "reply",
+        "replyMsgIds": "[\"TEST_MESSAGE_ID\"]"
+      },
+      "disabled": true
+    },
+    {
+      "id": "forward-message",
+      "name": "Forward Message",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        180
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendText",
+        "chatId": "TEST_DESTINATION_CHAT_ID",
+        "text": "Пересланное сообщение",
+        "sendMode": "forward",
+        "forwardChatId": "TEST_SOURCE_CHAT_ID",
+        "forwardMsgIds": "[\"TEST_MESSAGE_ID\"]"
+      },
+      "disabled": true
+    },
+    {
+      "id": "reuse-file",
+      "name": "Reuse File",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        360
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendFile",
+        "chatId": "TEST_CHAT_ID",
+        "fileSource": "fileId",
+        "fileId": "TEST_FILE_ID",
+        "caption": "Повторная отправка"
+      },
+      "disabled": true
+    },
+    {
+      "id": "reuse-voice",
+      "name": "Reuse Voice",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        540
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendVoice",
+        "chatId": "TEST_CHAT_ID",
+        "fileSource": "fileId",
+        "fileId": "TEST_VOICE_FILE_ID"
+      },
+      "disabled": true
+    },
+    {
+      "id": "formatted-message",
+      "name": "Formatted Message",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        720
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendText",
+        "chatId": "TEST_CHAT_ID",
+        "text": "Привет",
+        "formattingMode": "json",
+        "formatJson": "{\"bold\":[{\"offset\":0,\"length\":6}]}"
+      },
+      "disabled": true
+    },
+    {
+      "id": "callback-alert",
+      "name": "Callback Alert",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        900
+      ],
+      "parameters": {
+        "resource": "callback",
+        "operation": "answerCallbackQuery",
+        "queryId": "FRESH_TEST_QUERY_ID",
+        "text": "Готово",
+        "showAlert": true,
+        "callbackUrl": "https://example.com/"
+      },
+      "disabled": true
+    },
+    {
+      "id": "thread-manual",
+      "name": "Run Thread Example",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        650,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "add-test-thread",
+      "name": "Add Test Thread",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        950,
+        0
+      ],
+      "parameters": {
+        "resource": "thread",
+        "operation": "add",
+        "chatId": "TEST_PARENT_CHAT_ID",
+        "msgId": "TEST_ROOT_MESSAGE_ID"
+      },
+      "disabled": true
+    },
+    {
+      "id": "reply-in-thread",
+      "name": "Reply In Thread",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        0
+      ],
+      "parameters": {
+        "resource": "message",
+        "operation": "sendText",
+        "chatId": "={{ $json.threadId }}",
+        "text": "Ответ внутри треда"
+      },
+      "disabled": true
+    },
+    {
+      "id": "configure-test-subscription",
+      "name": "Configure Test Subscription",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        950,
+        200
+      ],
+      "parameters": {
+        "resource": "thread",
+        "operation": "autosubscribe",
+        "chatId": "TEST_PARENT_CHAT_ID",
+        "enable": false,
+        "withExisting": false
+      },
+      "disabled": true
+    },
+    {
+      "id": "get-thread-subscribers",
+      "name": "Get Thread Subscribers",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        950,
+        400
+      ],
+      "parameters": {
+        "resource": "thread",
+        "operation": "getSubscribers",
+        "threadId": "TEST_THREAD_CHAT_ID",
+        "paginationMode": "firstPage",
+        "pageSize": 10
+      },
+      "disabled": true
+    },
+    {
+      "id": "thread-events",
+      "name": "Thread Events",
+      "type": "n8n-nodes-vk-teams.vkTeamsTrigger",
+      "typeVersion": 1,
+      "position": [
+        950,
+        600
+      ],
+      "parameters": {
+        "events": [
+          "message",
+          "callbackQuery"
+        ],
+        "chatIds": "TEST_PARENT_CHAT_ID",
+        "userIds": "",
+        "includeThreads": true,
+        "downloadFiles": false
+      },
+      "disabled": true
+    }
+  ],
+  "connections": {
+    "Run Thread Example": {
+      "main": [
+        [
+          {
+            "node": "Add Test Thread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Add Test Thread": {
+      "main": [
+        [
+          {
+            "node": "Reply In Thread",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  }
+}

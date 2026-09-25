@@ -34,6 +34,7 @@ type TriggerDependencies = {
 };
 
 type TriggerOptions = {
+	includeThreads?: boolean;
 	lastEventId: number;
 	pollTime: number;
 	allowedTypes: Set<string>;
@@ -65,6 +66,7 @@ export async function runLongPollRequest(deps: TriggerDependencies, options: Tri
 	const filtered = filteredByType.filter((event) =>
 		matchesEventFilters(event, {
 			chatIds: options.chatIds,
+			includeThreads: options.includeThreads,
 			userIds: options.userIds,
 		}),
 	);
@@ -85,12 +87,13 @@ export async function runLongPollRequest(deps: TriggerDependencies, options: Tri
 
 			for (let index = 0; index < fileIds.length; index++) {
 				const fileInfo = await deps.fetchFileInfo(fileIds[index]);
+				const fileName = requireFileName(fileInfo.filename);
 				const data = await deps.downloadBinary(fileInfo.url);
 
 				binaryFiles.push({
 					propertyName: `file_${index}`,
 					data,
-					fileName: requireFileName(fileInfo.filename),
+					fileName,
 					mimeType: 'application/octet-stream',
 				});
 			}

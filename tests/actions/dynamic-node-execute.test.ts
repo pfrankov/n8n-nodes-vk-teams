@@ -3,7 +3,7 @@
 import assert from 'node:assert/strict';
 import test from 'node:test';
 import { Expression, NodeHelpers } from 'n8n-workflow';
-import type { IDataObject, INodeParameters } from 'n8n-workflow';
+import type { IDataObject, INodeParameters, IHttpRequestOptions } from 'n8n-workflow';
 
 import { VkTeams } from '../../nodes/VkTeams/VkTeams.node';
 
@@ -43,7 +43,14 @@ function createExecution(
 			return continueOnFail;
 		},
 		helpers: {
-			async httpRequest(options: { url: string }) {
+			async httpRequest(options: IHttpRequestOptions) {
+				if (options.method === 'POST') {
+					assert.ok(Buffer.isBuffer(options.body));
+					const form = await new Response(new Uint8Array(options.body), {
+						headers: options.headers as Record<string, string>,
+					}).formData();
+					assert.ok(form.get('file') instanceof Blob);
+				}
 				requests.push(new URL(options.url));
 				return { ok: true };
 			},
@@ -70,7 +77,9 @@ const baseParameters: INodeParameters = {
 
 function createItem(tags: string[]): IDataObject {
 	const rows = tags.map((tag) => ({
-		row: { buttons: [{ buttonType: 'callbackData', text: `@${tag}`, callbackData: `ping:${tag}` }] },
+		row: {
+			buttons: [{ buttonType: 'callbackData', text: `@${tag}`, callbackData: `ping:${tag}` }],
+		},
 	}));
 	return { rows };
 }
@@ -78,7 +87,9 @@ function createItem(tags: string[]): IDataObject {
 test('JSON keyboard expressions survive n8n parameter normalization', () => {
 	const { node, normalized } = createExecution(baseParameters, [createItem(['dev'])], []);
 	assert.equal(normalized.inlineKeyboardJson, '={{ $json.rows }}');
-	const field = node.description.properties.find((property) => property.name === 'inlineKeyboardJson');
+	const field = node.description.properties.find(
+		(property) => property.name === 'inlineKeyboardJson',
+	);
 	assert.equal(field?.type, 'json');
 	assert.deepEqual(field?.displayOptions?.show, {
 		keyboard: ['inlineKeyboardJson'],
@@ -96,13 +107,9 @@ for (const operation of ['sendText', 'editText', 'sendFile', 'sendVoice']) {
 	]) {
 		test(`${operation} serializes per-item keyboard: ${expression}`, async (t) => {
 			const requests: URL[] = [];
-			t.mock.method(globalThis, 'fetch', async (input: string, options: RequestInit) => {
-				assert.equal(options.method, 'POST');
-				assert.ok(options.body instanceof FormData);
-				assert.ok(options.body.get('file') instanceof Blob);
-				requests.push(new URL(input));
-				return new Response('{"ok":true}', { headers: { 'Content-Type': 'application/json' } });
-			});
+			t.mock.method(globalThis, 'fetch', async () =>
+				assert.fail('Upload must use n8n HTTP helper'),
+			);
 			const { node, context } = createExecution(
 				{
 					...baseParameters,
@@ -125,14 +132,21 @@ for (const operation of ['sendText', 'editText', 'sendFile', 'sendVoice']) {
 					tags.map((tag) => [{ text: `@${tag}`, callbackData: `ping:${tag}`, style: 'base' }]),
 				);
 			}
-			assert.deepEqual(result[0].map((item) => item.pairedItem), [{ item: 0 }, { item: 1 }]);
+			assert.deepEqual(
+				result[0].map((item) => item.pairedItem),
+				[{ item: 0 }, { item: 1 }],
+			);
 		});
 	}
 }
 
 test('malformed dynamic keyboard fails before any request', async () => {
 	const requests: URL[] = [];
-	const { node, context } = createExecution(baseParameters, [{ rows: [{ invalid: true }] }], requests);
+	const { node, context } = createExecution(
+		baseParameters,
+		[{ rows: [{ invalid: true }] }],
+		requests,
+	);
 	await assert.rejects(node.execute.call(context), /Keyboard row 1 must contain row.buttons/);
 	assert.equal(requests.length, 0);
 });

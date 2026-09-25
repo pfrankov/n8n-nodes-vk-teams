@@ -55,43 +55,71 @@ test('sendJsonRequest rejects logical VK Teams API errors', async () => {
 });
 
 test('sendUploadRequest rejects logical VK Teams API errors', async () => {
-	const originalFetch = globalThis.fetch;
-	globalThis.fetch = (async (url, init) => {
-		assert.equal(
-			String(url),
-			'https://myteam.example/bot/v1/messages/sendFile?token=token&chatId=chat-1',
-		);
-		assert.equal(init?.method, 'POST');
-		assert.ok(init?.body instanceof FormData);
-
-		return {
-			async json() {
-				return { ok: false, description: 'file too large' };
+	await assert.rejects(
+		sendUploadRequest(
+			{
+				helpers: { httpRequest: async () => ({ ok: false, description: 'file too large' }) },
+			} as never,
+			credentials,
+			{
+				endpoint: '/messages/sendFile',
+				params: { chatId: 'chat-1' },
+				fileField: 'file',
+				fileName: 'report.txt',
+				fileContentType: 'text/plain',
 			},
-		} as Response;
-	}) as typeof fetch;
+			{ data: Buffer.from('file'), fileName: 'report.txt', mimeType: 'text/plain' },
+		),
+		/VK Teams API error: file too large/,
+	);
+});
 
-	try {
-		await assert.rejects(
-			sendUploadRequest(
-				{} as never,
-				credentials,
-				{
-					endpoint: '/messages/sendFile',
-					params: { chatId: 'chat-1' },
-					fileField: 'file',
-					fileName: 'report.txt',
-					fileContentType: 'text/plain',
+for (const response of [null, [], 'Login required', 42, false]) {
+	test(`non-object API payload is not a successful result: ${JSON.stringify(response)}`, () => {
+		assert.throws(() => assertSuccessfulVkTeamsResponse(response), /invalid response/i);
+	});
+}
+
+test('an error-only API payload does not become successful output', () => {
+	assert.throws(() => assertSuccessfulVkTeamsResponse({ error: 'Access denied' }), /Access denied/);
+});
+
+test('documented responses without ok remain valid and preserve additional fields', () => {
+	for (const payload of [
+		{ url: 'https://files.example/test', filename: 'file.txt' },
+		{ members: [{ userId: 'user', admin: true }], cursor: 'opaque', serverField: 'retained' },
+		{ admins: [], serverField: 'retained' },
+		{ users: [] },
+	])
+		assert.equal(assertSuccessfulVkTeamsResponse(payload), payload);
+});
+
+for (const response of [{}, { ok: 'false' }, { ok: 0 }, { ok: null }]) {
+	test(`malformed success flag or empty JSON is not a successful response: ${JSON.stringify(response)}`, () => {
+		assert.throws(() => assertSuccessfulVkTeamsResponse(response), /invalid response/i);
+	});
+}
+
+test('JSON requests keep credentials authoritative and disable redirect replays', async () => {
+	let requests = 0;
+	await sendJsonRequest(
+		{
+			helpers: {
+				httpRequest: async (options: import('n8n-workflow').IHttpRequestOptions) => {
+					requests++;
+					assert.deepEqual(new URL(options.url).searchParams.getAll('token'), ['token']);
+					assert.equal(options.disableFollowRedirect, true);
+					assert.equal(options.timeout, 300_000);
+					return { ok: true };
 				},
-				{
-					data: Buffer.from('file'),
-					fileName: 'report.txt',
-					mimeType: 'text/plain',
-				},
-			),
-			/VK Teams API error: file too large/,
-		);
-	} finally {
-		globalThis.fetch = originalFetch;
-	}
+			},
+		} as never,
+		credentials,
+		{
+			method: 'GET',
+			endpoint: '/chats/setTitle',
+			params: { chatId: 'c', title: 't', token: 'override' },
+		},
+	);
+	assert.equal(requests, 1);
 });

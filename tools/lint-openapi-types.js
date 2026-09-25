@@ -3,6 +3,8 @@
 const fs = require('node:fs');
 const path = require('node:path');
 const YAML = require('yaml');
+const chatOperations = require('./chat-api-contract');
+const sdkOperations = require('./sdk-api-contract');
 
 const rootDir = path.resolve(__dirname, '..');
 const schemaPath = path.join(rootDir, 'docs', 'vk-teams-bot-api.openapi.yaml');
@@ -107,15 +109,21 @@ function operationParameterKeys(operation) {
 	return (operation.parameters ?? []).map(parameterKey);
 }
 
-function responseSuccessSchemaNames(operation) {
-	const schema = operation.responses?.['200']?.content?.['application/json']?.schema;
+function responseSchema(api, operation) {
+	const response = operation.responses?.['200'];
+	const resolved = response?.$ref ? resolveLocalRef(api, response.$ref) : response;
+	return resolved?.content?.['application/json']?.schema;
+}
+
+function responseSuccessSchemaNames(api, operation) {
+	const schema = responseSchema(api, operation);
 	return collectRefs(schema)
 		.map(refName)
 		.filter((name) => name !== 'ApiError');
 }
 
-function hasApiErrorResponse(operation) {
-	return collectRefs(operation.responses?.['200']).some((ref) => ref.endsWith('/ApiError'));
+function hasApiErrorResponse(api, operation) {
+	return collectRefs(responseSchema(api, operation)).some((ref) => ref.endsWith('/ApiError'));
 }
 
 function requestBodySchemaNames(operation) {
@@ -129,12 +137,14 @@ function extractActionKeys(routerSource) {
 function staticLint(api) {
 	const packageJson = readJson(packagePath);
 	const routerSource = readText(routerPath);
+	const chatSource = readText(path.join(rootDir, 'nodes', 'VkTeams', 'actions', 'chat.requests.ts'));
 	const requestsSource = readText(requestsPath);
+	const threadSource = readText(path.join(rootDir, 'nodes', 'VkTeams', 'actions', 'thread.requests.ts'));
 	const triggerNodeSource = readText(triggerNodePath);
 	const triggerFiltersSource = readText(triggerFiltersPath);
 	const schemaSource = readText(schemaPath);
 	const readmeSource = readText(readmePath);
-	const actionKeys = extractActionKeys(routerSource);
+	const actionKeys = extractActionKeys(routerSource + chatSource + threadSource);
 
 	check(api.openapi === '3.1.0', 'OpenAPI version must stay 3.1.0');
 	check(api.paths && typeof api.paths === 'object', 'OpenAPI paths object is required');
@@ -153,6 +163,8 @@ function staticLint(api) {
 	}
 
 	const expectedOperations = [
+		...chatOperations,
+		...sdkOperations,
 		{
 			operationId: 'bot.getSelf',
 			n8nOperation: 'bot.getSelf',
@@ -169,7 +181,7 @@ function staticLint(api) {
 			n8nOperation: 'message.sendText',
 			path: '/messages/sendText',
 			method: 'get',
-			params: ['token', 'chatId', 'text', 'inlineKeyboardMarkup', 'parseMode'],
+			params: ['token', 'chatId', 'text', 'replyMsgId', 'forwardChatId', 'forwardMsgId', 'inlineKeyboardMarkup', 'format', 'parseMode'],
 			successSchemas: ['MessageResponse'],
 			sourceEndpoint: '/messages/sendText',
 			sourceMethod: 'GET',
@@ -180,7 +192,7 @@ function staticLint(api) {
 			n8nOperation: 'message.sendFile',
 			path: '/messages/sendFile',
 			method: 'post',
-			params: ['token', 'chatId', 'caption', 'inlineKeyboardMarkup', 'parseMode'],
+			params: ['token', 'chatId', 'caption', 'replyMsgId', 'forwardChatId', 'forwardMsgId', 'inlineKeyboardMarkup', 'format', 'parseMode'],
 			successSchemas: ['UploadMessageResponse'],
 			requestBodySchemas: ['UploadFileRequest'],
 			sourceEndpoint: '/messages/sendFile',
@@ -192,7 +204,7 @@ function staticLint(api) {
 			n8nOperation: 'message.sendVoice',
 			path: '/messages/sendVoice',
 			method: 'post',
-			params: ['token', 'chatId', 'inlineKeyboardMarkup'],
+			params: ['token', 'chatId', 'replyMsgId', 'forwardChatId', 'forwardMsgId', 'inlineKeyboardMarkup'],
 			successSchemas: ['UploadMessageResponse'],
 			requestBodySchemas: ['UploadFileRequest'],
 			sourceEndpoint: '/messages/sendVoice',
@@ -204,7 +216,7 @@ function staticLint(api) {
 			n8nOperation: 'message.editText',
 			path: '/messages/editText',
 			method: 'get',
-			params: ['token', 'chatId', 'msgId', 'text', 'inlineKeyboardMarkup', 'parseMode'],
+			params: ['token', 'chatId', 'msgId', 'text', 'inlineKeyboardMarkup', 'format', 'parseMode'],
 			successSchemas: ['OkResponse'],
 			sourceEndpoint: '/messages/editText',
 			sourceMethod: 'GET',
@@ -226,7 +238,7 @@ function staticLint(api) {
 			n8nOperation: 'callback.answerCallbackQuery',
 			path: '/messages/answerCallbackQuery',
 			method: 'get',
-			params: ['token', 'queryId', 'callbackText'],
+			params: ['token', 'queryId', 'callbackText', 'showAlert', 'url'],
 			successSchemas: ['OkResponse'],
 			sourceEndpoint: '/messages/answerCallbackQuery',
 			sourceMethod: 'GET',
@@ -242,6 +254,7 @@ function staticLint(api) {
 			sourceEndpoint: '/chats/getInfo',
 			sourceMethod: 'GET',
 			actionKey: 'chat.getInfo',
+			source: 'chat',
 		},
 		{
 			operationId: 'file.getInfo',
@@ -267,7 +280,9 @@ function staticLint(api) {
 		},
 	];
 
-	check(Object.keys(api.paths).length === expectedOperations.length, 'Schema paths must match supported API scope exactly');
+	check(Object.keys(api.paths).length === new Set(expectedOperations.map((operation) => operation.path)).size, 'Schema paths must match supported API scope exactly');
+
+	check(Object.values(api.paths).reduce((total, methods) => total + Object.keys(methods).filter((method) => ['get', 'post', 'put', 'patch', 'delete', 'head', 'options'].includes(method)).length, 0) === expectedOperations.length, 'Schema must not contain unsupported HTTP methods');
 
 	for (const expected of expectedOperations) {
 		const operation = operationAt(api, expected.path, expected.method);
@@ -282,7 +297,7 @@ function staticLint(api) {
 			operation['x-n8n-operation'] === expected.n8nOperation,
 			`${expected.path} x-n8n-operation must be ${expected.n8nOperation}`,
 		);
-		check(hasApiErrorResponse(operation), `${expected.operationId} must include ApiError as a possible 200 response`);
+		check(hasApiErrorResponse(api, operation), `${expected.operationId} must include ApiError as a possible 200 response`);
 
 		const params = operationParameterKeys(operation);
 		check(
@@ -290,7 +305,7 @@ function staticLint(api) {
 			`${expected.operationId} must document exactly these parameters in order: ${expected.params.join(', ')}`,
 		);
 
-		const successSchemas = responseSuccessSchemaNames(operation);
+		const successSchemas = responseSuccessSchemaNames(api, operation);
 		for (const schemaName of expected.successSchemas) {
 			check(successSchemas.includes(schemaName), `${expected.operationId} must return ${schemaName}`);
 		}
@@ -304,8 +319,8 @@ function staticLint(api) {
 			check(actionKeys.has(expected.actionKey), `router.ts must expose action ${expected.actionKey}`);
 		}
 
-		const source = expected.source === 'trigger' ? triggerNodeSource : requestsSource;
-		const sourceLabel = expected.source === 'trigger' ? 'VkTeamsTrigger.node.ts' : 'requests.ts';
+		const source = expected.source === 'trigger' ? triggerNodeSource : expected.source === 'chat' ? chatSource : expected.source === 'thread' ? threadSource : requestsSource;
+		const sourceLabel = expected.source === 'trigger' ? 'VkTeamsTrigger.node.ts' : expected.source === 'chat' ? 'chat.requests.ts' : expected.source === 'thread' ? 'thread.requests.ts' : 'requests.ts';
 
 		check(source.includes(`endpoint: '${expected.sourceEndpoint}'`), `${sourceLabel} must contain endpoint ${expected.sourceEndpoint}`);
 		check(
@@ -340,7 +355,7 @@ function staticLint(api) {
 
 	const supportedEvent = api.components.schemas.SupportedEvent;
 	const eventMappings = supportedEvent?.discriminator?.mapping ?? {};
-	for (const eventType of ['newMessage', 'editedMessage', 'deletedMessage', 'callbackQuery']) {
+	for (const eventType of ['newMessage', 'editedMessage', 'deletedMessage', 'callbackQuery', 'newChatMembers', 'leftChatMembers', 'pinnedMessage', 'unpinnedMessage']) {
 		check(eventMappings[eventType], `SupportedEvent discriminator must include ${eventType}`);
 	}
 
