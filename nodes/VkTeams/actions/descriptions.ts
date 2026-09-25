@@ -1,4 +1,5 @@
 import type { INodeProperties } from 'n8n-workflow';
+import { chatProperties } from './chat.descriptions';
 
 const showMessage = {
 	resource: ['message'],
@@ -6,10 +7,6 @@ const showMessage = {
 
 const showCallback = {
 	resource: ['callback'],
-};
-
-const showChat = {
-	resource: ['chat'],
 };
 
 const showFile = {
@@ -62,15 +59,7 @@ export const vkTeamsProperties: INodeProperties[] = [
 		],
 		default: 'answerCallbackQuery',
 	},
-	{
-		displayName: 'Operation',
-		name: 'operation',
-		type: 'options',
-		noDataExpression: true,
-		displayOptions: { show: showChat },
-		options: [{ name: 'Get Info', value: 'getInfo', action: 'Get chat info' }],
-		default: 'getInfo',
-	},
+	...chatProperties,
 	{
 		displayName: 'Operation',
 		name: 'operation',
@@ -107,7 +96,7 @@ export const vkTeamsProperties: INodeProperties[] = [
 		displayOptions: {
 			show: {
 				operation: ['getInfo', 'sendText', 'sendFile', 'sendVoice', 'editText', 'deleteMessages'],
-				resource: ['chat', 'message'],
+				resource: ['message'],
 			},
 		},
 	},
@@ -178,7 +167,8 @@ export const vkTeamsProperties: INodeProperties[] = [
 		displayName: 'Inline Keyboard',
 		name: 'inlineKeyboard',
 		placeholder: 'Add Keyboard Row',
-		description: 'Adds an inline keyboard with callback or URL buttons. For dynamic rows, use Inline Keyboard (JSON).',
+		description:
+			'Adds an inline keyboard with callback or URL buttons. For dynamic rows, use Inline Keyboard (JSON).',
 		type: 'fixedCollection',
 		typeOptions: {
 			multipleValues: true,

@@ -21,6 +21,10 @@
 - `editedMessage`
 - `deletedMessage`
 - `callbackQuery`
+- `newChatMembers`
+- `leftChatMembers`
+- `pinnedMessage`
+- `unpinnedMessage`
 
 Что доступно:
 
@@ -42,8 +46,39 @@
 - `message.deleteMessages`
 - `callback.answerCallbackQuery`
 - `chat.getInfo`
+- `chat.getMembers`
+- `chat.getAdmins`
+- `chat.getBlockedUsers`
+- `chat.getPendingUsers`
+- `chat.deleteMembers`
+- `chat.setTitle`
+- `chat.setAbout`
+- `chat.setRules`
+- `chat.sendActions`
+- `chat.blockUser`
+- `chat.unblockUser`
+- `chat.resolvePending`
+- `chat.pinMessage`
+- `chat.unpinMessage`
+- `chat.setAvatar`
 - `file.getInfo`
 - `file.download`
+
+### Управление существующими чатами
+
+`Chat` → `Get Members` возвращает **одну страницу**: `members` и, при наличии следующей страницы, `cursor`. Передайте его без изменений в поле `Cursor` следующего вызова. Если курсора нет, он пустой или `null`, обход завершён. Нода не выгружает весь состав автоматически и не выполняет скрытых повторных запросов.
+
+`Delete Members` принимает в `Members (JSON)` непустой массив ID, например `["user1@example.com", "user2@example.com"]`, или выражение `={{ $json.members }}`. ID должны быть строками без дублей. Это удаление из чата, а не блокировка; `Block User` и `Unblock User` — отдельные операции для одного пользователя. Для серии блокировок используйте отдельные входные items n8n, чтобы видеть результат каждого запроса.
+
+В `Resolve Pending` по умолчанию требуется конкретный `User ID`. Обработка всех заявок включается только переключателем `Everyone`. `Approve` определяет, принять или отклонить выбранные заявки. У `Block User` удаление последних сообщений по умолчанию выключено.
+
+`Set About` и `Set Rules` позволяют очистить поле пустой строкой. В `Send Actions` доступны `typing` и `looking`; пустой выбор снимает индикаторы. Несколько действий передаются повторяющимися query-параметрами, а не одной строкой через запятую. `Set Avatar` получает изображение из binary-поля и отправляет его как multipart `image`. ID сообщений для закрепления и снятия закрепления передавайте строкой, без преобразования в JavaScript `Number`.
+
+Результат API возвращается одним JSON item на входной item, без удаления дополнительных полей сервера. Типы списков (`members`, `admins`, `users`), флагов `admin`/`creator`, курсора и остальных ответов описаны в [схеме API](docs/vk-teams-bot-api.openapi.yaml). Ошибки `ok=false`, ответы только с `error` и ответы, не являющиеся JSON-объектом, проходят обычную обработку ошибок ноды; `Continue On Fail` сохраняет связь с исходным item.
+
+Фильтр Trigger по пользователю проверяет `payload.addedBy.userId` для `newChatMembers`, `payload.removedBy.userId` для `leftChatMembers`, а для остальных событий — `payload.from.userId`. Участники из `newMembers`/`leftMembers` не считаются инициатором действия. `pinnedMessage` фильтруется по полю `from`, которое не следует считать отдельным подтверждением личности модератора. Событие без соответствующего пользователя, в частности обычный `unpinnedMessage`, не проходит непустой фильтр `Restrict To User IDs`.
+
+Доступность операций зависит от версии сервера и прав бота. Создание чатов и добавление участников (`chats/createChat`, `chats/members/add`) относятся к отдельному private/on-premise API и **не добавлены** в общий список операций. Разбор источников и границ покрытия: [исследование issue #1](docs/issue-1-api-review.md). Это расширение существующих чатов, а не обещание полного покрытия всех API.
 
 ## Установка
 
@@ -153,13 +188,15 @@ return [{
 
 ## Работа с файлами
 
+Загрузка аватара, файла и голосового сообщения выполняется через HTTP-helper n8n с его сетевыми настройками и проверками, HTTP-таймаутом 300 секунд и без автоматических перенаправлений. В credentials нужен конечный адрес Bot API. Неуспешный HTTP-статус считается ошибкой; автоматического повтора загрузки нет. Если настроенные ограничения n8n запрещают адрес сервера, согласуйте разрешённый адрес с администратором, а не обходите ограничения. Загрузки полностью буферизуются в памяти; потоковая передача файлов не реализована.
+
 `message.sendFile` и `message.sendVoice` берут файл из binary input предыдущего узла. Укажите `Input Binary Field`, в котором лежит файл.
 
 `file.download` сначала получает метаданные через `file.getInfo`, затем скачивает файл и возвращает JSON с метаданными вместе с binary output.
 
 ## Схема API
 
-OpenAPI-подобная схема поддерживаемого Bot API scope лежит в [`docs/vk-teams-bot-api.openapi.yaml`](docs/vk-teams-bot-api.openapi.yaml). В ней зафиксированы методы, параметры, multipart upload, типы ответов, raw-типы событий и live-наблюдения по реальному VK Teams endpoint.
+OpenAPI-подобная схема поддерживаемого Bot API scope лежит в [`docs/vk-teams-bot-api.openapi.yaml`](docs/vk-teams-bot-api.openapi.yaml). В ней зафиксированы методы, параметры, multipart upload, типы ответов, raw-типы событий и отдельно отмеченные исторические live-наблюдения для исходного набора методов. Они не подтверждают live-проверку новых операций чатов.
 
 ## Ограничения
 
@@ -167,7 +204,8 @@ OpenAPI-подобная схема поддерживаемого Bot API scope
 - Входящие события работают через long polling, не через webhook.
 - `VK Teams Trigger` скачивает вложения только из верхнего уровня `payload.parts`.
 - `message.sendFile` и `message.sendVoice` пока не переиспользуют существующий `fileId`.
-- Административные on-premise методы чатов не входят в текущую версию.
+- Private/on-premise методы `chats/createChat` и `chats/members/add` не входят в текущую версию. Другие операции чатов не получают дополнительных прав: их проверяет сервер.
+- Новые операции чатов и четыре новых события сверены с официальной спецификацией и SDK, но не проверены на реальном боте в рамках этого изменения.
 
 
 ## Разработка
@@ -201,6 +239,8 @@ npm run lint:types:live
 В репозитории сохранён переносимый draft-workflow для регрессионной проверки ноды:
 
 - [`docs/workflows/vk-teams-node-verification.workflow.json`](docs/workflows/vk-teams-node-verification.workflow.json)
+
+Отдельный [workflow управления чатами](docs/workflows/vk-teams-chat-verification.workflow.json) содержит четыре операции чтения, отключённые примеры изменений и отдельный Trigger без отправки сообщений.
 
 Краткий runbook по импорту, повторному запуску и пересинхронизации артефакта лежит в [`docs/workflows/README.md`](docs/workflows/README.md).
 

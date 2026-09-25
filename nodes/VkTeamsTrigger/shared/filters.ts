@@ -7,6 +7,8 @@ type EventPayload = {
 			chatId?: string;
 		};
 	};
+	addedBy?: { userId?: string };
+	removedBy?: { userId?: string };
 	from?: {
 		userId?: string;
 	};
@@ -40,7 +42,10 @@ function expandAllowedTypes(allowedTypes: Set<string>): Set<string> {
 	return expanded;
 }
 
-export function filterEvents<T extends { type?: string }>(events: T[], allowedTypes: Set<string>): T[] {
+export function filterEvents<T extends { type?: string }>(
+	events: T[],
+	allowedTypes: Set<string>,
+): T[] {
 	if (allowedTypes.size === 0) {
 		return events;
 	}
@@ -48,6 +53,12 @@ export function filterEvents<T extends { type?: string }>(events: T[], allowedTy
 	const expandedAllowedTypes = expandAllowedTypes(allowedTypes);
 
 	return events.filter((event) => event.type !== undefined && expandedAllowedTypes.has(event.type));
+}
+
+function eventUserId(event: TriggerEvent): string | undefined {
+	if (event.type === 'newChatMembers') return event.payload?.addedBy?.userId;
+	if (event.type === 'leftChatMembers') return event.payload?.removedBy?.userId;
+	return event.payload?.from?.userId;
 }
 
 export function matchesEventFilters(event: TriggerEvent, filters: EventFilters): boolean {
@@ -60,7 +71,7 @@ export function matchesEventFilters(event: TriggerEvent, filters: EventFilters):
 	}
 
 	if (filters.userIds?.size) {
-		const userId = event.payload?.from?.userId;
+		const userId = eventUserId(event);
 
 		if (userId === undefined || !filters.userIds.has(userId)) {
 			return false;

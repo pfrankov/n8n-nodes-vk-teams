@@ -7,6 +7,7 @@ import type {
 } from 'n8n-workflow';
 import { ApplicationError, BINARY_ENCODING, NodeConnectionTypes } from 'n8n-workflow';
 
+import { readChatInput } from './actions/chat.input';
 import { buildInlineKeyboardMarkup } from './actions/keyboard';
 import { executeAction } from './actions/execute';
 import { vkTeamsProperties } from './actions/descriptions';
@@ -34,7 +35,9 @@ function readInlineKeyboardMarkup(context: IExecuteFunctions, itemIndex: number)
 	}
 
 	if (keyboard === 'inlineKeyboardJson') {
-		return buildInlineKeyboardMarkup(context.getNodeParameter('inlineKeyboardJson', itemIndex, '[]'));
+		return buildInlineKeyboardMarkup(
+			context.getNodeParameter('inlineKeyboardJson', itemIndex, '[]'),
+		);
 	}
 
 	if (keyboard === 'none') {
@@ -102,7 +105,7 @@ export class VkTeams implements INodeType {
 				const resource = this.getNodeParameter('resource', itemIndex) as string;
 				const operation = this.getNodeParameter('operation', itemIndex) as string;
 				const actionKey = `${resource}.${operation}`;
-				const input: Record<string, unknown> = {};
+				let input: Record<string, unknown> = {};
 
 				if (actionKey === 'message.sendText') {
 					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
@@ -118,9 +121,11 @@ export class VkTeams implements INodeType {
 				} else if (actionKey === 'message.deleteMessages') {
 					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
 					input.msgId = (
-						(this.getNodeParameter('messageIds', itemIndex) as {
-							values?: Array<{ msgId: string }>;
-						}).values ?? []
+						(
+							this.getNodeParameter('messageIds', itemIndex) as {
+								values?: Array<{ msgId: string }>;
+							}
+						).values ?? []
 					).map((item) => item.msgId);
 				} else if (actionKey === 'message.sendFile' || actionKey === 'message.sendVoice') {
 					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
@@ -137,16 +142,24 @@ export class VkTeams implements INodeType {
 				} else if (actionKey === 'callback.answerCallbackQuery') {
 					input.queryId = this.getNodeParameter('queryId', itemIndex) as string;
 					input.text = this.getNodeParameter('text', itemIndex, '') as string;
-				} else if (actionKey === 'chat.getInfo') {
-					input.chatId = this.getNodeParameter('chatId', itemIndex) as string;
+				} else if (resource === 'chat') {
+					input = readChatInput(operation, (name, fallback) =>
+						this.getNodeParameter(name, itemIndex, fallback),
+					);
+					if (operation === 'setAvatar') {
+						input.binaryFile = await readBinaryFile(
+							this,
+							itemIndex,
+							this.getNodeParameter('binaryPropertyName', itemIndex) as string,
+						);
+					}
 				} else if (actionKey === 'file.getInfo' || actionKey === 'file.download') {
 					input.fileId = this.getNodeParameter('fileId', itemIndex) as string;
 				}
 
 				const result = await executeAction(
 					{
-						requestJson: async (request) =>
-							await sendJsonRequest(this, credentials, request),
+						requestJson: async (request) => await sendJsonRequest(this, credentials, request),
 						requestUpload: async (request, binaryFile) =>
 							await sendUploadRequest(this, credentials, request, binaryFile),
 						downloadBinary: async (url) => await downloadBinary(this, url),

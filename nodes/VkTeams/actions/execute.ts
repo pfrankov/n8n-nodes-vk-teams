@@ -1,8 +1,8 @@
+import { buildChatRequest, buildSetChatAvatarRequest } from './chat.requests';
 import {
 	buildAnswerCallbackQueryRequest,
 	buildDeleteMessagesRequest,
 	buildEditTextRequest,
-	buildGetChatInfoRequest,
 	buildGetFileInfoRequest,
 	buildGetSelfRequest,
 	buildSendFileUploadRequest,
@@ -142,6 +142,21 @@ export async function executeAction(
 	actionKey: string,
 	input: ActionInput,
 ): Promise<{ json: unknown; binaryFile?: OutputBinaryFile }> {
+	if (actionKey === 'chat.setAvatar') {
+		if (input.binaryFile === undefined) {
+			throw new Error('Binary data is required for chat.setAvatar');
+		}
+		const request = buildSetChatAvatarRequest({
+			chatId: input.chatId,
+			fileName: input.binaryFile.fileName,
+			fileContentType: input.binaryFile.mimeType,
+		});
+		return { json: await deps.requestUpload(request, input.binaryFile) };
+	}
+	if (actionKey.startsWith('chat.')) {
+		return { json: await deps.requestJson(buildChatRequest(actionKey, input)) };
+	}
+
 	if (actionKey === 'file.download') {
 		const fileId = requireString(input.fileId, 'fileId');
 		const fileInfo = (await deps.requestJson({
@@ -216,7 +231,9 @@ export async function executeAction(
 			const msgId = input.msgId;
 			request = buildDeleteMessagesRequest({
 				chatId: requireString(input.chatId, 'chatId'),
-				msgId: Array.isArray(msgId) ? msgId.map((value) => String(value)) : requireString(msgId, 'msgId'),
+				msgId: Array.isArray(msgId)
+					? msgId.map((value) => String(value))
+					: requireString(msgId, 'msgId'),
 			});
 			break;
 		}
@@ -224,11 +241,6 @@ export async function executeAction(
 			request = buildAnswerCallbackQueryRequest({
 				queryId: requireString(input.queryId, 'queryId'),
 				text: input.text === undefined ? undefined : String(input.text),
-			});
-			break;
-		case 'chat.getInfo':
-			request = buildGetChatInfoRequest({
-				chatId: requireString(input.chatId, 'chatId'),
 			});
 			break;
 		case 'file.getInfo':
