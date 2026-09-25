@@ -34,6 +34,7 @@ type TriggerDependencies = {
 };
 
 type TriggerOptions = {
+	includeThreads?: boolean;
 	lastEventId: number;
 	pollTime: number;
 	allowedTypes: Set<string>;
@@ -65,6 +66,7 @@ export async function runLongPollRequest(deps: TriggerDependencies, options: Tri
 	const filtered = filteredByType.filter((event) =>
 		matchesEventFilters(event, {
 			chatIds: options.chatIds,
+			includeThreads: options.includeThreads,
 			userIds: options.userIds,
 		}),
 	);

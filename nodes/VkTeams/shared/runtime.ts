@@ -37,7 +37,7 @@ type BinaryFile = {
 };
 
 function isRecord(value: unknown): value is Record<string, unknown> {
-	return typeof value === 'object' && value !== null;
+	return typeof value === 'object' && value !== null && !Array.isArray(value);
 }
 
 function getStringField(record: Record<string, unknown>, field: string): string | undefined {
@@ -58,14 +58,18 @@ function getVkTeamsApiErrorMessage(response: unknown): string | undefined {
 		return description ?? error ?? 'Request failed';
 	}
 
-	if (response.ok !== true && description !== undefined) {
-		return description;
+	if (response.ok !== true) {
+		return description ?? error;
 	}
 
 	return undefined;
 }
 
 export function assertSuccessfulVkTeamsResponse<T>(response: T): T {
+	if (!isRecord(response)) {
+		throw new ApplicationError('VK Teams API returned an invalid response: expected a JSON object');
+	}
+
 	const errorMessage = getVkTeamsApiErrorMessage(response);
 
 	if (errorMessage !== undefined) {
@@ -124,10 +128,18 @@ export async function sendUploadRequest(
 		request.fileName,
 	);
 
-	const response = await fetch(options.url, {
+	// Let the platform encode multipart; pass bytes through n8n's HTTP helper so
+	// its proxy, TLS and SSRF policies also apply to uploads. No multipart dependency.
+	const encoded = new Response(form);
+	const response = await context.helpers.httpRequest({
 		method: 'POST',
-		body: form,
-	}).then(async (apiResponse) => (await apiResponse.json()) as unknown);
+		url: options.url,
+		headers: { 'Content-Type': encoded.headers.get('content-type')! },
+		body: Buffer.from(await encoded.arrayBuffer()),
+		json: true,
+		disableFollowRedirect: true,
+		timeout: 300_000,
+	});
 
 	return assertSuccessfulVkTeamsResponse(response);
 }

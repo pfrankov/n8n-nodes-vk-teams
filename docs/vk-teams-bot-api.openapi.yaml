@@ -6,13 +6,20 @@ info:
     Self-contained OpenAPI-style contract for the VK Teams Bot API methods exposed by
     this package. It is based on the public VK Teams Bot API swagger fragments, the
     vk_teams_async_bot typed SDK, and live checks against a real VK Teams endpoint on
-    2026-04-24. VK Teams returns logical API errors as HTTP 200 payloads with
+    2026-04-24 for the original scope. Chat extensions were rechecked on 2026-09-25
+    against the official hosted API specification, Python/Java/Go SDKs and a separate
+    async SDK, not a live bot.
+    This contract describes the package scope, not the complete server API.
+    VK Teams returns logical API errors as HTTP 200 payloads with
     ok=false and description.
   x-sources:
     - https://teams.vk.com/botapi/api.yaml
     - https://teams.vk.com/botapi/schemas.json
     - https://teams.vk.com/botapi/params.json
     - https://github.com/Quakeer444/vk_teams_async_bot
+    - https://github.com/mail-ru-im/bot-python
+    - https://github.com/mail-ru-im/bot-java
+    - https://github.com/mail-ru-im/bot-golang
   x-live-observed:
     date: "2026-04-24"
     endpoint: redacted-real-vk-teams-endpoint
@@ -32,6 +39,7 @@ tags:
   - name: chat
   - name: file
   - name: event
+  - name: thread
 security:
   - botTokenQuery: []
 paths:
@@ -54,7 +62,7 @@ paths:
                   - $ref: "#/components/schemas/ApiError"
   /messages/sendText:
     get:
-      tags: [message]
+      tags: [ message ]
       operationId: message.sendText
       x-n8n-operation: message.sendText
       summary: Send a text message.
@@ -62,7 +70,11 @@ paths:
         - $ref: "#/components/parameters/token"
         - $ref: "#/components/parameters/chatId"
         - $ref: "#/components/parameters/text"
+        - $ref: "#/components/parameters/replyMsgId"
+        - $ref: "#/components/parameters/forwardChatId"
+        - $ref: "#/components/parameters/forwardMsgId"
         - $ref: "#/components/parameters/inlineKeyboardMarkup"
+        - $ref: "#/components/parameters/format"
         - $ref: "#/components/parameters/parseMode"
       responses:
         "200":
@@ -73,18 +85,25 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/MessageResponse"
                   - $ref: "#/components/schemas/ApiError"
+      x-sdk-extension-verification: "2026-09-25: optional parameters checked against
+        the official specification/SDKs; not live-tested."
   /messages/sendFile:
     post:
-      tags: [message]
+      tags: [ message ]
       operationId: message.sendFile
       x-n8n-operation: message.sendFile
-      x-n8n-current-scope: Uploads incoming binary data; existing fileId reuse is not exposed yet.
+      x-n8n-current-scope: Binary source uploads incoming data. File ID source uses
+        GET without reading binary data.
       summary: Upload and send a file.
       parameters:
         - $ref: "#/components/parameters/token"
         - $ref: "#/components/parameters/chatId"
         - $ref: "#/components/parameters/caption"
+        - $ref: "#/components/parameters/replyMsgId"
+        - $ref: "#/components/parameters/forwardChatId"
+        - $ref: "#/components/parameters/forwardMsgId"
         - $ref: "#/components/parameters/inlineKeyboardMarkup"
+        - $ref: "#/components/parameters/format"
         - $ref: "#/components/parameters/parseMode"
       requestBody:
         required: true
@@ -101,17 +120,54 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/UploadMessageResponse"
                   - $ref: "#/components/schemas/ApiError"
+      x-n8n-file-source: binary
+      x-sdk-extension-verification: "2026-09-25: optional parameters checked against
+        the official specification/SDKs; not live-tested."
+    get:
+      tags:
+        - message
+      operationId: message.sendFileById
+      x-n8n-operation: message.sendFile
+      x-n8n-file-source: fileId
+      summary: Send an existing file by fileId without uploading it again.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/fileId"
+        - $ref: "#/components/parameters/caption"
+        - $ref: "#/components/parameters/replyMsgId"
+        - $ref: "#/components/parameters/forwardChatId"
+        - $ref: "#/components/parameters/forwardMsgId"
+        - $ref: "#/components/parameters/inlineKeyboardMarkup"
+        - $ref: "#/components/parameters/format"
+        - $ref: "#/components/parameters/parseMode"
+      responses:
+        "200":
+          description: Message ID or logical API error; no newly uploaded fileId is
+            required.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MessageResponse"
+                  - $ref: "#/components/schemas/ApiError"
+      x-sdk-extension-verification: "2026-09-25: optional parameters checked against
+        the official specification/SDKs; not live-tested."
   /messages/sendVoice:
     post:
-      tags: [message]
+      tags: [ message ]
       operationId: message.sendVoice
       x-n8n-operation: message.sendVoice
-      x-n8n-current-scope: Uploads incoming binary data; existing fileId reuse is not exposed yet.
+      x-n8n-current-scope: Binary source uploads incoming data. File ID source uses
+        GET without reading binary data.
       summary: Upload and send a voice message.
       description: VK Teams documents aac, ogg, and m4a voice file support.
       parameters:
         - $ref: "#/components/parameters/token"
         - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/replyMsgId"
+        - $ref: "#/components/parameters/forwardChatId"
+        - $ref: "#/components/parameters/forwardMsgId"
         - $ref: "#/components/parameters/inlineKeyboardMarkup"
       requestBody:
         required: true
@@ -128,9 +184,39 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/UploadMessageResponse"
                   - $ref: "#/components/schemas/ApiError"
+      x-n8n-file-source: binary
+      x-sdk-extension-verification: "2026-09-25: optional parameters checked against
+        the official specification/SDKs; not live-tested."
+    get:
+      tags:
+        - message
+      operationId: message.sendVoiceById
+      x-n8n-operation: message.sendVoice
+      x-n8n-file-source: fileId
+      summary: Send an existing voice message by fileId without uploading it again.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/fileId"
+        - $ref: "#/components/parameters/replyMsgId"
+        - $ref: "#/components/parameters/forwardChatId"
+        - $ref: "#/components/parameters/forwardMsgId"
+        - $ref: "#/components/parameters/inlineKeyboardMarkup"
+      responses:
+        "200":
+          description: Message ID or logical API error; no newly uploaded fileId is
+            required.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/MessageResponse"
+                  - $ref: "#/components/schemas/ApiError"
+      x-sdk-extension-verification: "2026-09-25: optional parameters checked against
+        the official specification/SDKs; not live-tested."
   /messages/editText:
     get:
-      tags: [message]
+      tags: [ message ]
       operationId: message.editText
       x-n8n-operation: message.editText
       summary: Edit message text.
@@ -140,6 +226,7 @@ paths:
         - $ref: "#/components/parameters/msgId"
         - $ref: "#/components/parameters/text"
         - $ref: "#/components/parameters/inlineKeyboardMarkup"
+        - $ref: "#/components/parameters/format"
         - $ref: "#/components/parameters/parseMode"
       responses:
         "200":
@@ -150,6 +237,8 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/OkResponse"
                   - $ref: "#/components/schemas/ApiError"
+      x-sdk-extension-verification: "2026-09-25: optional parameters checked against
+        the official specification/SDKs; not live-tested."
   /messages/deleteMessages:
     get:
       tags: [message]
@@ -177,7 +266,7 @@ paths:
                   - $ref: "#/components/schemas/ApiError"
   /messages/answerCallbackQuery:
     get:
-      tags: [callback]
+      tags: [ callback ]
       operationId: callback.answerCallbackQuery
       x-n8n-operation: callback.answerCallbackQuery
       x-live-observed:
@@ -188,6 +277,8 @@ paths:
         - $ref: "#/components/parameters/token"
         - $ref: "#/components/parameters/queryId"
         - $ref: "#/components/parameters/callbackText"
+        - $ref: "#/components/parameters/showAlert"
+        - $ref: "#/components/parameters/url"
       responses:
         "200":
           description: ok=true or logical API error.
@@ -197,6 +288,8 @@ paths:
                 oneOf:
                   - $ref: "#/components/schemas/OkResponse"
                   - $ref: "#/components/schemas/ApiError"
+      x-sdk-extension-verification: "2026-09-25: optional parameters checked against
+        the official specification/SDKs; not live-tested."
   /chats/getInfo:
     get:
       tags: [chat]
@@ -236,11 +329,12 @@ paths:
                   - $ref: "#/components/schemas/ApiError"
   /events/get:
     get:
-      tags: [event]
+      tags: [ event ]
       operationId: trigger.events.get
       x-n8n-operation: vkTeamsTrigger.longPoll
       summary: Long-poll bot events.
-      description: The trigger keeps a long-lived trigger loop and calls this endpoint with pollTime=60.
+      description: The trigger keeps a long-lived trigger loop and calls this endpoint
+        with pollTime=60.
       parameters:
         - $ref: "#/components/parameters/token"
         - $ref: "#/components/parameters/lastEventId"
@@ -253,6 +347,450 @@ paths:
               schema:
                 oneOf:
                   - $ref: "#/components/schemas/EventsResponse"
+                  - $ref: "#/components/schemas/ApiError"
+      x-n8n-include-threads: "Optional includeThreads=false by default: additionally
+        match the parent_topic.chatId (including nested callback message)
+        against the configured chat IDs. User filtering is unchanged."
+  /chats/getMembers:
+    get:
+      tags:
+      - chat
+      operationId: chat.getMembers
+      x-n8n-operation: chat.getMembers
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: getMembers for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+        Returns one page; preserve the opaque cursor and request the next page explicitly.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/cursor'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/ChatMembersResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/getAdmins:
+    get:
+      tags:
+      - chat
+      operationId: chat.getAdmins
+      x-n8n-operation: chat.getAdmins
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: getAdmins for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/ChatAdminsResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/getBlockedUsers:
+    get:
+      tags:
+      - chat
+      operationId: chat.getBlockedUsers
+      x-n8n-operation: chat.getBlockedUsers
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: getBlockedUsers for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/ChatUsersResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/getPendingUsers:
+    get:
+      tags:
+      - chat
+      operationId: chat.getPendingUsers
+      x-n8n-operation: chat.getPendingUsers
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: getPendingUsers for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/ChatUsersResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/members/delete:
+    get:
+      tags:
+      - chat
+      operationId: chat.deleteMembers
+      x-n8n-operation: chat.deleteMembers
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: deleteMembers for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/members'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/setTitle:
+    get:
+      tags:
+      - chat
+      operationId: chat.setTitle
+      x-n8n-operation: chat.setTitle
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: setTitle for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/title'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/setAbout:
+    get:
+      tags:
+      - chat
+      operationId: chat.setAbout
+      x-n8n-operation: chat.setAbout
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: setAbout for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/about'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/setRules:
+    get:
+      tags:
+      - chat
+      operationId: chat.setRules
+      x-n8n-operation: chat.setRules
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: setRules for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/rules'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/sendActions:
+    get:
+      tags:
+      - chat
+      operationId: chat.sendActions
+      x-n8n-operation: chat.sendActions
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: sendActions for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/actions'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/blockUser:
+    get:
+      tags:
+      - chat
+      operationId: chat.blockUser
+      x-n8n-operation: chat.blockUser
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: blockUser for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/userId'
+      - $ref: '#/components/parameters/delLastMessages'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/unblockUser:
+    get:
+      tags:
+      - chat
+      operationId: chat.unblockUser
+      x-n8n-operation: chat.unblockUser
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: unblockUser for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/userId'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/resolvePending:
+    get:
+      tags:
+      - chat
+      operationId: chat.resolvePending
+      x-n8n-operation: chat.resolvePending
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: resolvePending for an existing chat.
+      description: 'VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+        Exactly one target: nonempty userId or everyone=true. approve is explicit for both targets.'
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/pendingUserId'
+      - $ref: '#/components/parameters/everyone'
+      - $ref: '#/components/parameters/approve'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/pinMessage:
+    get:
+      tags:
+      - chat
+      operationId: chat.pinMessage
+      x-n8n-operation: chat.pinMessage
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: pinMessage for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/msgId'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/unpinMessage:
+    get:
+      tags:
+      - chat
+      operationId: chat.unpinMessage
+      x-n8n-operation: chat.unpinMessage
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: unpinMessage for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      - $ref: '#/components/parameters/msgId'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/OkResponse'
+                - $ref: '#/components/schemas/ApiError'
+  /chats/avatar/set:
+    post:
+      tags:
+      - chat
+      operationId: chat.setAvatar
+      x-n8n-operation: chat.setAvatar
+      x-verification:
+        method: Official OpenAPI and SDK contract cross-check; no live bot test
+        date: '2026-09-25'
+      summary: setAvatar for an existing chat.
+      description: VK Teams enforces bot permissions. Availability can depend on the server version and configuration.
+      parameters:
+      - $ref: '#/components/parameters/token'
+      - $ref: '#/components/parameters/chatId'
+      responses:
+        '200':
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                - $ref: '#/components/schemas/ChatAvatarResponse'
+                - $ref: '#/components/schemas/ApiError'
+      requestBody:
+        required: true
+        content:
+          multipart/form-data:
+            schema:
+              $ref: '#/components/schemas/ChatAvatarUpload'
+  /threads/add:
+    get:
+      tags:
+        - thread
+      operationId: thread.add
+      x-n8n-operation: thread.add
+      summary: Create a thread under an existing message. Use threadId as the target
+        chatId for subsequent messages.
+      x-verification:
+        method: Official specification and Python/Go SDK cross-check; no live bot test
+        date: 2026-09-25
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/msgId"
+      responses:
+        "200":
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ThreadResponse"
+                  - $ref: "#/components/schemas/ApiError"
+  /threads/autosubscribe:
+    get:
+      tags:
+        - thread
+      operationId: thread.autosubscribe
+      x-n8n-operation: thread.autosubscribe
+      summary: Configure the bot subscription explicitly. Trigger activation never
+        calls this method automatically.
+      x-verification:
+        method: Official specification and Python/Go SDK cross-check; no live bot test
+        date: 2026-09-25
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/enable"
+        - $ref: "#/components/parameters/withExisting"
+      responses:
+        "200":
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/OkResponse"
+                  - $ref: "#/components/schemas/ApiError"
+  /threads/subscribers/get:
+    get:
+      tags:
+        - thread
+      operationId: thread.getSubscribers
+      x-n8n-operation: thread.getSubscribers
+      summary: Return one page. Provide pageSize for the first page or an opaque
+        cursor for the next page. No automatic pagination.
+      x-verification:
+        method: Official specification and Python/Go SDK cross-check; no live bot test
+        date: 2026-09-25
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/threadId"
+        - $ref: "#/components/parameters/pageSize"
+        - $ref: "#/components/parameters/cursor"
+      responses:
+        "200":
+          description: Successful response or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ThreadSubscribersResponse"
                   - $ref: "#/components/schemas/ApiError"
 components:
   securitySchemes:
@@ -337,14 +875,18 @@ components:
         type: array
         items:
           type: string
-      description: Message ids to reply to.
+        minItems: 1
+        uniqueItems: true
+      description: Unique nonempty string message IDs, serialized as repeated query
+        parameters. Reply and Forward modes are mutually exclusive.
     forwardChatId:
       name: forwardChatId
       in: query
       required: false
       schema:
         type: string
-      description: Chat id containing messages to forward.
+      description: Source chat ID; must be supplied together with forwardMsgId. Not
+        used in Reply mode.
     forwardMsgId:
       name: forwardMsgId
       in: query
@@ -355,7 +897,10 @@ components:
         type: array
         items:
           type: string
-      description: Message ids to forward.
+        minItems: 1
+        uniqueItems: true
+      description: Unique nonempty string message IDs, serialized as repeated query
+        parameters. Reply and Forward modes are mutually exclusive.
     inlineKeyboardMarkup:
       name: inlineKeyboardMarkup
       in: query
@@ -367,9 +912,12 @@ components:
       name: format
       in: query
       required: false
-      schema:
-        $ref: "#/components/schemas/Format"
-      description: Rich text format ranges serialized as query parameter.
+      description: One JSON-encoded format object. Mutually exclusive with parseMode.
+        Ranges are supplied by the caller and are not recalculated.
+      content:
+        application/json:
+          schema:
+            $ref: "#/components/schemas/Format"
     parseMode:
       name: parseMode
       in: query
@@ -416,6 +964,144 @@ components:
         type: integer
         minimum: 1
       description: Long-poll timeout in seconds.
+    cursor:
+      name: cursor
+      in: query
+      required: false
+      schema:
+        type: string
+      description: Opaque cursor from a previous member/subscriber page; omit for the
+        first page.
+    title:
+      name: title
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      description: New nonempty title.
+    about:
+      name: about
+      in: query
+      required: true
+      schema:
+        type: string
+      description: New description; an empty string clears it.
+    rules:
+      name: rules
+      in: query
+      required: true
+      schema:
+        type: string
+      description: New rules; an empty string clears them.
+    userId:
+      name: userId
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      description: User ID to block or unblock.
+    pendingUserId:
+      name: userId
+      in: query
+      required: false
+      schema:
+        type: string
+        minLength: 1
+      description: Single join request to process. Mutually exclusive with everyone=true.
+    everyone:
+      name: everyone
+      in: query
+      required: false
+      schema:
+        type: boolean
+        const: true
+      description: Process all pending join requests. Never inferred from an empty user ID.
+    approve:
+      name: approve
+      in: query
+      required: true
+      schema:
+        type: boolean
+      description: Approve when true; reject when false. Applies to the explicitly selected target.
+    delLastMessages:
+      name: delLastMessages
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: Also remove recent messages of the blocked user. Defaults to false.
+    members:
+      name: members
+      in: query
+      required: true
+      description: One JSON-encoded array of objects with sn. The n8n input is a nonempty array of distinct user
+        ID strings.
+      content:
+        application/json:
+          schema:
+            type: array
+            minItems: 1
+            uniqueItems: true
+            items:
+              type: object
+              required:
+              - sn
+              properties:
+                sn:
+                  type: string
+                  minLength: 1
+              additionalProperties: false
+    actions:
+      name: actions
+      in: query
+      required: true
+      style: form
+      explode: true
+      schema:
+        type: array
+        uniqueItems: true
+        items:
+          type: string
+          enum:
+          - typing
+          - looking
+      description: Repeated actions query keys, for example actions=typing&actions=looking. The empty string clears activity indicators.
+    threadId:
+      name: threadId
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      description: Thread chat ID.
+    pageSize:
+      name: pageSize
+      in: query
+      required: false
+      schema:
+        type: integer
+        minimum: 1
+      description: Positive safe integer for the first page. Required unless cursor is
+        provided.
+    enable:
+      name: enable
+      in: query
+      required: true
+      schema:
+        type: boolean
+      description: Enable or disable bot thread autosubscription explicitly.
+    withExisting:
+      name: withExisting
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+      description: Include existing threads only when explicitly requested.
+
   schemas:
     ApiError:
       type: object
@@ -600,6 +1286,10 @@ components:
         - $ref: "#/components/schemas/EditedMessageEvent"
         - $ref: "#/components/schemas/DeletedMessageEvent"
         - $ref: "#/components/schemas/CallbackQueryEvent"
+        - $ref: "#/components/schemas/UnpinnedMessageEvent"
+        - $ref: "#/components/schemas/PinnedMessageEvent"
+        - $ref: "#/components/schemas/LeftChatMembersEvent"
+        - $ref: "#/components/schemas/NewChatMembersEvent"
       discriminator:
         propertyName: type
         mapping:
@@ -607,6 +1297,10 @@ components:
           editedMessage: "#/components/schemas/EditedMessageEvent"
           deletedMessage: "#/components/schemas/DeletedMessageEvent"
           callbackQuery: "#/components/schemas/CallbackQueryEvent"
+          unpinnedMessage: "#/components/schemas/UnpinnedMessageEvent"
+          pinnedMessage: "#/components/schemas/PinnedMessageEvent"
+          leftChatMembers: "#/components/schemas/LeftChatMembersEvent"
+          newChatMembers: "#/components/schemas/NewChatMembersEvent"
     BaseEvent:
       type: object
       required: [eventId, type, payload]
@@ -690,7 +1384,7 @@ components:
               additionalProperties: true
     MessagePayload:
       type: object
-      required: [msgId, chat, from]
+      required: [ msgId, chat, from ]
       properties:
         msgId:
           type: string
@@ -708,6 +1402,8 @@ components:
           type: array
           items:
             $ref: "#/components/schemas/MessagePart"
+        parent_topic:
+          $ref: "#/components/schemas/ThreadParent"
       additionalProperties: true
     NestedMessage:
       type: object
@@ -724,6 +1420,8 @@ components:
           $ref: "#/components/schemas/Format"
         timestamp:
           type: integer
+        parent_topic:
+          $ref: "#/components/schemas/ThreadParent"
       additionalProperties: true
     EventChat:
       type: object
@@ -951,5 +1649,234 @@ components:
         - $ref: "#/components/schemas/FormatRange"
         - type: object
           properties:
-            language:
+            code:
               type: string
+              description: Optional pre/code language, named code in the official parameter
+                schema.
+    ChatMember:
+      type: object
+      required:
+      - userId
+      properties:
+        userId:
+          type: string
+        admin:
+          type: boolean
+        creator:
+          type: boolean
+      additionalProperties: true
+    ChatMembersResponse:
+      type: object
+      required:
+      - members
+      properties:
+        ok:
+          type: boolean
+          const: true
+        members:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMember'
+        cursor:
+          type:
+          - string
+          - 'null'
+          description: Pass to getMembers for the next page. Missing, empty or null means no next page.
+      additionalProperties: true
+    ChatAdminsResponse:
+      type: object
+      required:
+      - admins
+      properties:
+        ok:
+          type: boolean
+          const: true
+        admins:
+          type: array
+          items:
+            $ref: '#/components/schemas/ChatMember'
+      additionalProperties: true
+    ChatUsersResponse:
+      type: object
+      required:
+      - users
+      properties:
+        ok:
+          type: boolean
+          const: true
+        users:
+          type: array
+          items:
+            $ref: '#/components/schemas/EventUser'
+      additionalProperties: true
+    ChatAvatarResponse:
+      allOf:
+      - $ref: '#/components/schemas/OkResponse'
+      - type: object
+        properties:
+          description:
+            type:
+            - string
+            - 'null'
+    ChatAvatarUpload:
+      type: object
+      required:
+      - image
+      properties:
+        image:
+          type: string
+          format: binary
+      additionalProperties: false
+    NewChatMembersEvent:
+      allOf:
+      - $ref: '#/components/schemas/BaseEvent'
+      - type: object
+        x-n8n-trigger-event: newChatMembers
+        properties:
+          type:
+            type: string
+            const: newChatMembers
+          payload:
+            type: object
+            required:
+            - chat
+            - newMembers
+            properties:
+              chat:
+                $ref: '#/components/schemas/EventChat'
+              newMembers:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventUser'
+              addedBy:
+                $ref: '#/components/schemas/EventUser'
+            additionalProperties: true
+    LeftChatMembersEvent:
+      allOf:
+      - $ref: '#/components/schemas/BaseEvent'
+      - type: object
+        x-n8n-trigger-event: leftChatMembers
+        properties:
+          type:
+            type: string
+            const: leftChatMembers
+          payload:
+            type: object
+            required:
+            - chat
+            - leftMembers
+            properties:
+              chat:
+                $ref: '#/components/schemas/EventChat'
+              leftMembers:
+                type: array
+                items:
+                  $ref: '#/components/schemas/EventUser'
+              removedBy:
+                $ref: '#/components/schemas/EventUser'
+            additionalProperties: true
+    PinnedMessageEvent:
+      allOf:
+      - $ref: '#/components/schemas/BaseEvent'
+      - type: object
+        x-n8n-trigger-event: pinnedMessage
+        properties:
+          type:
+            type: string
+            const: pinnedMessage
+          payload:
+            type: object
+            required:
+            - chat
+            - msgId
+            properties:
+              chat:
+                $ref: '#/components/schemas/EventChat'
+              msgId:
+                type: string
+              timestamp:
+                type: integer
+              from:
+                $ref: '#/components/schemas/EventUser'
+              text:
+                type: string
+              format:
+                $ref: '#/components/schemas/Format'
+            additionalProperties: true
+    UnpinnedMessageEvent:
+      allOf:
+      - $ref: '#/components/schemas/BaseEvent'
+      - type: object
+        x-n8n-trigger-event: unpinnedMessage
+        properties:
+          type:
+            type: string
+            const: unpinnedMessage
+          payload:
+            type: object
+            required:
+            - chat
+            - msgId
+            properties:
+              chat:
+                $ref: '#/components/schemas/EventChat'
+              msgId:
+                type: string
+              timestamp:
+                type: integer
+            additionalProperties: true
+    ThreadResponse:
+      type: object
+      required:
+        - threadId
+      properties:
+        ok:
+          type: boolean
+          const: true
+        threadId:
+          type: string
+      additionalProperties: true
+    ThreadSubscriber:
+      type: object
+      required:
+        - sn
+      properties:
+        sn:
+          type: string
+        userState:
+          type: object
+          properties:
+            lastseen:
+              type: integer
+          additionalProperties: true
+      additionalProperties: true
+    ThreadSubscribersResponse:
+      type: object
+      required:
+        - subscribers
+      properties:
+        ok:
+          type: boolean
+          const: true
+        cursor:
+          type:
+            - string
+            - "null"
+        subscribers:
+          type: array
+          items:
+            $ref: "#/components/schemas/ThreadSubscriber"
+      additionalProperties: true
+    ThreadParent:
+      type: object
+      properties:
+        chatId:
+          type: string
+        messageId:
+          type: integer
+        type:
+          type: string
+      additionalProperties: true
+      description: Incoming parent_topic metadata. Include Threads optionally matches
+        its chatId; outgoing messages use the thread chat ID, not an inferred
+        parent_topic parameter.

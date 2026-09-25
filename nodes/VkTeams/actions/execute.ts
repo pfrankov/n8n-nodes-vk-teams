@@ -1,11 +1,16 @@
+import { callbackOptions, fileSource, nonemptyString, sendRelation } from './message.options';
+import { messageFormat, type MessageFormat } from './message.format';
+import { buildThreadRequest } from './thread.requests';
+import { buildChatRequest, buildSetChatAvatarRequest } from './chat.requests';
 import {
 	buildAnswerCallbackQueryRequest,
 	buildDeleteMessagesRequest,
 	buildEditTextRequest,
-	buildGetChatInfoRequest,
 	buildGetFileInfoRequest,
 	buildGetSelfRequest,
 	buildSendFileUploadRequest,
+	buildSendFileIdRequest,
+	buildSendVoiceIdRequest,
 	buildSendTextRequest,
 	buildSendVoiceUploadRequest,
 } from './requests';
@@ -51,6 +56,7 @@ type ActionInput = Record<string, unknown> & {
 
 type TextMessageOptions = {
 	parseMode?: 'MarkdownV2' | 'HTML';
+	format?: MessageFormat;
 	inlineKeyboardMarkup?: unknown;
 };
 
@@ -125,8 +131,13 @@ function optionalInlineKeyboardMarkup(value: unknown): unknown {
 }
 
 function textMessageOptions(input: ActionInput): TextMessageOptions {
+	const format = messageFormat(input.format);
+	const parseMode = optionalParseMode(input.parseMode);
+	if (format !== undefined && parseMode !== undefined)
+		throw new Error('format and parseMode are mutually exclusive');
 	return {
-		parseMode: optionalParseMode(input.parseMode),
+		parseMode,
+		...(format === undefined ? {} : { format }),
 		inlineKeyboardMarkup: optionalInlineKeyboardMarkup(input.inlineKeyboardMarkup),
 	};
 }
@@ -142,6 +153,23 @@ export async function executeAction(
 	actionKey: string,
 	input: ActionInput,
 ): Promise<{ json: unknown; binaryFile?: OutputBinaryFile }> {
+	if (actionKey.startsWith('thread.'))
+		return { json: await deps.requestJson(buildThreadRequest(actionKey, input)) };
+	if (actionKey === 'chat.setAvatar') {
+		if (input.binaryFile === undefined) {
+			throw new Error('Binary data is required for chat.setAvatar');
+		}
+		const request = buildSetChatAvatarRequest({
+			chatId: input.chatId,
+			fileName: input.binaryFile.fileName,
+			fileContentType: input.binaryFile.mimeType,
+		});
+		return { json: await deps.requestUpload(request, input.binaryFile) };
+	}
+	if (actionKey.startsWith('chat.')) {
+		return { json: await deps.requestJson(buildChatRequest(actionKey, input)) };
+	}
+
 	if (actionKey === 'file.download') {
 		const fileId = requireString(input.fileId, 'fileId');
 		const fileInfo = (await deps.requestJson({
@@ -166,6 +194,23 @@ export async function executeAction(
 	}
 
 	if (actionKey === 'message.sendFile' || actionKey === 'message.sendVoice') {
+		const relation = sendRelation(input);
+		if (fileSource(input.fileSource) === 'fileId') {
+			const common = {
+				chatId: nonemptyString(input.chatId, 'chatId'),
+				fileId: nonemptyString(input.fileId, 'fileId'),
+				...relation,
+			};
+			const request =
+				actionKey === 'message.sendFile'
+					? buildSendFileIdRequest({
+							...common,
+							caption: optionalString(input.caption),
+							...textMessageOptions(input),
+						})
+					: buildSendVoiceIdRequest({ ...common, ...keyboardOnlyOptions(input) });
+			return { json: await deps.requestJson(request) };
+		}
 		if (input.binaryFile === undefined) {
 			throw new Error(`Binary data is required for ${actionKey}`);
 		}
@@ -178,6 +223,7 @@ export async function executeAction(
 						fileName: input.binaryFile.fileName,
 						fileContentType: input.binaryFile.mimeType,
 						caption: optionalString(input.caption),
+						...relation,
 						...textMessageOptions(input),
 					})
 				: buildSendVoiceUploadRequest({
@@ -185,6 +231,7 @@ export async function executeAction(
 						fileName: input.binaryFile.fileName,
 						fileContentType: input.binaryFile.mimeType,
 						...keyboardOnlyOptions(input),
+						...relation,
 					});
 
 		const json = await deps.requestUpload(request, input.binaryFile);
@@ -199,6 +246,7 @@ export async function executeAction(
 			break;
 		case 'message.sendText':
 			request = buildSendTextRequest({
+				...sendRelation(input),
 				chatId: requireString(input.chatId, 'chatId'),
 				text: requireString(input.text, 'text'),
 				...textMessageOptions(input),
@@ -216,19 +264,17 @@ export async function executeAction(
 			const msgId = input.msgId;
 			request = buildDeleteMessagesRequest({
 				chatId: requireString(input.chatId, 'chatId'),
-				msgId: Array.isArray(msgId) ? msgId.map((value) => String(value)) : requireString(msgId, 'msgId'),
+				msgId: Array.isArray(msgId)
+					? msgId.map((value) => String(value))
+					: requireString(msgId, 'msgId'),
 			});
 			break;
 		}
 		case 'callback.answerCallbackQuery':
 			request = buildAnswerCallbackQueryRequest({
 				queryId: requireString(input.queryId, 'queryId'),
+				...callbackOptions(input),
 				text: input.text === undefined ? undefined : String(input.text),
-			});
-			break;
-		case 'chat.getInfo':
-			request = buildGetChatInfoRequest({
-				chatId: requireString(input.chatId, 'chatId'),
 			});
 			break;
 		case 'file.getInfo':

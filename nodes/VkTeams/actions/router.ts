@@ -1,8 +1,9 @@
+import { buildThreadRequest, threadMethods } from './thread.requests';
+import { buildChatRequest, buildSetChatAvatarRequest, chatMethods } from './chat.requests';
 import {
 	buildAnswerCallbackQueryRequest,
 	buildDeleteMessagesRequest,
 	buildEditTextRequest,
-	buildGetChatInfoRequest,
 	buildGetFileInfoRequest,
 	buildGetSelfRequest,
 	buildSendFileUploadRequest,
@@ -39,10 +40,7 @@ const actionMap = {
 		key: 'callback.answerCallbackQuery',
 		buildRequest: buildAnswerCallbackQueryRequest,
 	},
-	'chat.getInfo': {
-		key: 'chat.getInfo',
-		buildRequest: buildGetChatInfoRequest,
-	},
+	'chat.setAvatar': { key: 'chat.setAvatar', buildRequest: buildSetChatAvatarRequest },
 	'file.getInfo': {
 		key: 'file.getInfo',
 		buildRequest: buildGetFileInfoRequest,
@@ -54,6 +52,18 @@ const actionMap = {
 } as const;
 
 export function resolveAction(resource: string, operation: string) {
+	const chatKey = `${resource}.${operation}`;
+	if (Object.prototype.hasOwnProperty.call(threadMethods, chatKey))
+		return {
+			key: chatKey,
+			buildRequest: (input: Record<string, unknown>) => buildThreadRequest(chatKey, input),
+		};
+	if (Object.prototype.hasOwnProperty.call(chatMethods, chatKey)) {
+		return {
+			key: chatKey,
+			buildRequest: (input: Record<string, unknown>) => buildChatRequest(chatKey, input),
+		};
+	}
 	const key = `${resource}.${operation}` as keyof typeof actionMap;
 	const action = actionMap[key];
 

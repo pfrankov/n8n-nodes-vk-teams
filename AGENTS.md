@@ -36,7 +36,18 @@ The package is intentionally split into trigger and action nodes, similar to Tel
 - File download is a two-step flow:
   1. `GET /files/getInfo`
   2. download the returned external URL
-- `createChat`, member management, and some administrative endpoints are on-prem/private-only. Keep them out of the public surface until there is an explicit scope expansion and tests for them.
+- `chats/createChat` and `chats/members/add` are separate private/on-premise capabilities. Do not expose them as generally available without an explicit scope expansion and deployment evidence. `chats/members/delete` and the supported moderation methods are ordinary SDK methods; their availability still depends on server permissions/configuration.
+- Chat operations use explicit targets and an endpoint allowlist. Never infer everyone=true from a missing user ID. Member removal accepts a nonempty JSON array of distinct string IDs and serializes one query parameter containing [{"sn":"..."}]. Never coerce ID numbers or spread user input into query parameters.
+- `chat.sendActions` serializes an array as repeated `actions` query keys; no actions must still produce a single empty `actions=`. Cross-check transport serialization, not just SDK method signatures.
+- Route all network uploads through n8n helpers; no direct fetch or fallback that bypasses n8n policy. Native FormData is serialized to a Buffer with its Content-Type before passing it to the helper. Do not add multipart dependencies. Upload redirects are disabled and the HTTP timeout is 300 seconds; uploads remain fully buffered.
+- `chat.getMembers` returns one page and preserves its opaque cursor. `chat.setAvatar` uses multipart field `image`, unlike message uploads using `file`.
+- Trigger user filters use addedBy/removedBy for membership events and from for the other events. Affected members are not actors. Missing user fields do not bypass an active filter; unpinnedMessage normally has no user field.
+
+- Message Send Mode explicitly selects none/reply/forward. Validate nonempty unique string ID arrays and serialize repeated replyMsgId/forwardMsgId keys; never infer a mode or read hidden expressions.
+- File Source defaults to binary. File ID uses GET on sendFile/sendVoice without reading storage or downloading anything, and does not require a new fileId in the response.
+- Formatting defaults to the existing parseMode path. Explicit format JSON is mutually exclusive with parseMode; validate kinds/ranges and use the official pre field code. Never silently recalculate caller-supplied Unicode offsets.
+- Threads use explicit add/autosubscribe/getSubscribers operations. No implicit autosubscription or pagination. Pagination mode selects pageSize or cursor, not hidden stale fields. Use the returned threadId as outgoing chatId.
+- Include Threads is opt-in for matching incoming parent_topic.chatId, also in nested callback messages; it must not loosen user filtering or subscribe automatically.
 
 Useful references:
 
@@ -55,6 +66,10 @@ Trigger events:
 - `editedMessage`
 - `deletedMessage`
 - `callbackQuery`
+- `newChatMembers`
+- `leftChatMembers`
+- `pinnedMessage`
+- `unpinnedMessage`
 
 Action operations:
 
@@ -66,13 +81,33 @@ Action operations:
 - `message.deleteMessages`
 - `callback.answerCallbackQuery`
 - `chat.getInfo`
+- `chat.getMembers`
+- `chat.getAdmins`
+- `chat.getBlockedUsers`
+- `chat.getPendingUsers`
+- `chat.deleteMembers`
+- `chat.setTitle`
+- `chat.setAbout`
+- `chat.setRules`
+- `chat.sendActions`
+- `chat.blockUser`
+- `chat.unblockUser`
+- `chat.resolvePending`
+- `chat.pinMessage`
+- `chat.unpinMessage`
+- `chat.setAvatar`
+- `thread.add`
+- `thread.autosubscribe`
+- `thread.getSubscribers`
 - `file.getInfo`
 - `file.download`
 
 ## Known Product Limits
 
 - Trigger file download currently inspects top-level message parts only.
-- `message.sendFile` and `message.sendVoice` currently use incoming binary data, not pre-existing VK Teams `fileId` reuse.
+- Uploads are fully buffered; this package does not offer streaming or resumable uploads.
+- Supported scope is not exhaustive server API coverage: private chat creation/member addition and other endpoints/events outside the documented list are not exposed.
+- File ID reuse works on the same server; do not claim cross-installation portability. Full upload buffering remains a known limit. SDK-only changedChatInfo, deeplink and request-id idempotency are not exposed without a verified contract.
 - No send-and-wait behavior yet.
 - No declarative node implementation here by design; binary handling and trigger behavior make programmatic style simpler and easier to test.
 - `n8n.strict` is set to `false` so the repository can keep a local TypeScript test harness alongside production source. Keep production lint/build quality high anyway.
@@ -153,7 +188,7 @@ If live VK Teams credentials are available, verify API alignment against a real 
 - `CHANGELOG.md` is the release-facing source for user-visible changes since the previous tag.
 - `AGENTS.md` is the engineering-facing source for durable product scope, architecture rules, verification expectations, and documentation policy. Do not store one-off release notes or temporary rollout details here.
 - `docs/vk-teams-bot-api.openapi.yaml` is the supported Bot API contract for this package. Update it when adding, removing, or changing supported endpoints, parameters, payloads, multipart behavior, response shapes, or event shapes.
-- `docs/workflows/vk-teams-node-verification.workflow.json` and `docs/workflows/README.md` are the reusable manual verification artifacts for real-bot checks. Update them when node surface, required credentials, expected outputs, or the live verification flow changes. The separate `vk-teams-dynamic-keyboard.workflow.json` covers variable-length keyboard expressions without changing the existing verification matrix.
+- `docs/workflows/vk-teams-node-verification.workflow.json` and `docs/workflows/README.md` are the reusable manual verification artifacts for real-bot checks. Update them when node surface, required credentials, expected outputs, or the live verification flow changes. The separate `vk-teams-chat-verification.workflow.json` extends the matrix with read-only chat requests, disabled disconnected mutation examples, and an independent event branch; never broaden the existing callback branch to non-callback events. The separate `vk-teams-dynamic-keyboard.workflow.json` covers variable-length keyboard expressions without changing the existing verification matrix.
 - Node descriptions and metadata are part of the public documentation surface. When changing display names, options, defaults, resource names, operation names, credential fields, icons, or node registration, keep README examples, changelog wording, tests, and package metadata aligned.
 - When supported trigger events or action operations change, update all of these in the same work item: `Supported v1 Scope` in this file, README supported lists, node descriptions, tests, and changelog if the change is release-relevant.
 - When known limitations change, update `Known Product Limits` here and the README limitations section. If users need to notice the change during upgrade, also update `CHANGELOG.md`.
@@ -164,7 +199,7 @@ If live VK Teams credentials are available, verify API alignment against a real 
 
 - Keep `CHANGELOG.md` current for every release-relevant change.
 - Write changelog entries in Russian for package users, not for maintainers reading the source.
-- Use tag-based sections. Each release heading is only the tag name, for example `## v0.1.0`, with no separate date.
+- Keep pending user-visible changes under `## Не выпущено` until a release is requested; do not assign an unreleased change to an existing tag. Released sections are tag-based. Each release heading is only the tag name, for example `## v0.1.0`, with no separate date.
 - Summarize the diff from the previous tag to the current tag. Before finalizing an entry, compare the previous tag with current `HEAD`; do not rely on memory.
 - Start each bullet with the user-visible effect: what changed in n8n, VK Teams behavior, credentials, supported operations, packaging, installation, or verification. Add implementation details only when they help the user identify the affected node, option, operation, or workflow.
 - Use Russian section headings: `Добавлено`, `Улучшено`, `Исправлено`, `Сопровождение`, `Для разработки`.
@@ -174,5 +209,5 @@ If live VK Teams credentials are available, verify API alignment against a real 
 - For substantive releases, include `Кому важно` with concrete affected scenarios or user types.
 - For substantive releases, include `Что проверить после обновления` with concrete n8n/VK Teams checks: node discovery, credentials, trigger activation, message send/edit/delete, file upload/download, callback query handling, package loading, or publish/install verification.
 - User impact must be explicit in the entry body. Do not invent product motivation unless it is supported by code, docs, issue text, or commit messages.
-- Public names from the node surface are allowed: node names, event names, operation ids, credential names, option names, and npm commands. Avoid internal helper names, file paths, and implementation classes unless the section is explicitly `Для разработки`.
+- Public names from the node surface are allowed: node names, event names, operation ids, credential names, and npm commands. Avoid internal helper names, file paths, and implementation classes unless the section is explicitly `Для разработки`.
 - If an item maps to a single commit, append only a short commit hash with no URL.

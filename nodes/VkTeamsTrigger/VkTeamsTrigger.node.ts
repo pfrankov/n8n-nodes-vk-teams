@@ -22,10 +22,14 @@ const triggerProperties: INodeProperties[] = [
 		name: 'events',
 		type: 'multiOptions',
 		options: [
-			{ name: 'Message', value: 'message' },
-			{ name: 'Edited Message', value: 'editedMessage' },
-			{ name: 'Deleted Message', value: 'deletedMessage' },
 			{ name: 'Callback Query', value: 'callbackQuery' },
+			{ name: 'Deleted Message', value: 'deletedMessage' },
+			{ name: 'Edited Message', value: 'editedMessage' },
+			{ name: 'Left Chat Members', value: 'leftChatMembers' },
+			{ name: 'Message', value: 'message' },
+			{ name: 'New Chat Members', value: 'newChatMembers' },
+			{ name: 'Pinned Message', value: 'pinnedMessage' },
+			{ name: 'Unpinned Message', value: 'unpinnedMessage' },
 		],
 		default: ['message'],
 		required: true,
@@ -37,8 +41,18 @@ const triggerProperties: INodeProperties[] = [
 		default: '',
 	},
 	{
+		displayName: 'Include Threads',
+		name: 'includeThreads',
+		type: 'boolean',
+		default: false,
+		description:
+			'Whether the chat ID filter also matches parent_topic.chatId for thread events. Does not subscribe the bot or change the user filter.',
+	},
+	{
 		displayName: 'Restrict To User IDs',
 		name: 'userIds',
+		description:
+			'Comma-separated payload user IDs: from, addedBy, or removedBy depending on event type. Events without that user, including unpinnedMessage, do not match a nonempty filter.',
 		type: 'string',
 		default: '',
 	},
@@ -72,27 +86,27 @@ export class VkTeamsTrigger implements INodeType {
 		version: 1,
 		subtitle: '={{$parameter["events"].join(", ")}}',
 		description: 'Start workflows from VK Teams bot events',
-			defaults: {
-				name: 'VK Teams Trigger',
+		defaults: {
+			name: 'VK Teams Trigger',
+		},
+		usableAsTool: true,
+		eventTriggerDescription: '',
+		triggerPanel: {
+			header: '',
+			executionsHelp: {
+				inactive:
+					"<b>While building your workflow</b>, click the 'execute step' button, then send a VK Teams message. This will trigger an execution, which will show up in this editor.<br /> <br /><b>Once you're happy with your workflow</b>, publish it. Then the node will keep a long-poll connection open and execute as soon as matching VK Teams events arrive.",
+				active:
+					"<b>While building your workflow</b>, click the 'execute step' button, then send a VK Teams message. This will trigger an execution, which will show up in this editor.<br /> <br /><b>Your workflow will also execute automatically</b>, since it's activated. The node keeps a long-poll connection open and emits executions as soon as matching VK Teams events arrive.",
 			},
-			usableAsTool: true,
-			eventTriggerDescription: '',
-			triggerPanel: {
-				header: '',
-				executionsHelp: {
-					inactive:
-						"<b>While building your workflow</b>, click the 'execute step' button, then send a VK Teams message. This will trigger an execution, which will show up in this editor.<br /> <br /><b>Once you're happy with your workflow</b>, publish it. Then the node will keep a long-poll connection open and execute as soon as matching VK Teams events arrive.",
-					active:
-						"<b>While building your workflow</b>, click the 'execute step' button, then send a VK Teams message. This will trigger an execution, which will show up in this editor.<br /> <br /><b>Your workflow will also execute automatically</b>, since it's activated. The node keeps a long-poll connection open and emits executions as soon as matching VK Teams events arrive.",
-				},
-				activationHint:
-					'Once activated, this node keeps a long-poll connection open to VK Teams for near-immediate message handling.',
-			},
-			inputs: [],
-			outputs: [NodeConnectionTypes.Main],
-			credentials: [{ name: 'vkTeamsApi', required: true }],
-			properties: triggerProperties,
-		};
+			activationHint:
+				'Once activated, this node keeps a long-poll connection open to VK Teams for near-immediate message handling.',
+		},
+		inputs: [],
+		outputs: [NodeConnectionTypes.Main],
+		credentials: [{ name: 'vkTeamsApi', required: true }],
+		properties: triggerProperties,
+	};
 
 	async trigger(this: ITriggerFunctions): Promise<ITriggerResponse> {
 		const credentials = (await this.getCredentials('vkTeamsApi')) as {
@@ -173,6 +187,7 @@ export class VkTeamsTrigger implements INodeType {
 						pollTime: LONG_POLL_TIMEOUT_SECONDS,
 						allowedTypes: new Set(this.getNodeParameter('events') as string[]),
 						chatIds: parseIdSet(this.getNodeParameter('chatIds', '') as string),
+						includeThreads: this.getNodeParameter('includeThreads', false) === true,
 						userIds: parseIdSet(this.getNodeParameter('userIds', '') as string),
 						downloadFiles: this.getNodeParameter('downloadFiles') as boolean,
 					},
