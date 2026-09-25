@@ -1,0 +1,43 @@
+name: SDK extension verification workspace
+on:
+  push:
+    branches: [review/issue-1-sdk-workspace]
+permissions:
+  contents: read
+jobs:
+  workspace:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 9ac4be4cd3031e6695cf08a769a5c1decf3573fa
+          persist-credentials: false
+      - name: Export public source and specifications
+        run: |
+          mkdir -p "$RUNNER_TEMP/sdk-docs"
+          git archive --format=tar.gz HEAD > "$RUNNER_TEMP/sdk-docs/head.tar.gz"
+          python3 - <<'PY'
+          import json, os, urllib.request, pathlib
+          root = pathlib.Path(os.environ['RUNNER_TEMP']) / 'sdk-docs'
+          base = 'https://teams.vk.com/botapi/'
+          for name in ['api.yaml', 'params.json', 'schemas.json']:
+              data = urllib.request.urlopen(base + name, timeout=30).read()
+              (root / name).write_bytes(data)
+          api = (root / 'api.yaml').read_text()
+          import re
+          paths = sorted(set(re.findall(r'\$ref:\s*[\"\']?([^\s\"\']+)', api)))
+          for path in paths:
+              if not path.startswith(('messages/', 'threads/', 'events/')): continue
+              try:
+                  data = urllib.request.urlopen(base + path, timeout=30).read()
+                  target = root / path
+                  target.parent.mkdir(parents=True, exist_ok=True)
+                  target.write_bytes(data)
+              except Exception as exc: print(path, type(exc).__name__)
+          PY
+      - uses: actions/upload-artifact@v4
+        with:
+          name: sdk-extension-workspace
+          path: ${{ runner.temp }}/sdk-docs/
+          retention-days: 1
