@@ -1,0 +1,22 @@
+name: PR 4 compact review source
+on:
+  push:
+    branches: [review/pr4-compact-workspace]
+permissions:
+  contents: read
+jobs:
+  source:
+    runs-on: ubuntu-latest
+    timeout-minutes: 5
+    steps:
+      - uses: actions/checkout@v6
+        with:
+          ref: 27e8e891858d7d13c3501c2c81168562f6b87220
+          persist-credentials: false
+      - name: Archive tracked public source only
+        run: git archive --format=tar.gz -o "$RUNNER_TEMP/source.tar.gz" HEAD
+      - uses: actions/upload-artifact@v4
+        with:
+          name: pr4-compact-source
+          path: ${{ runner.temp }}/source.tar.gz
+          retention-days: 1
