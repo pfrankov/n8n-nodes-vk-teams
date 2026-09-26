@@ -1,0 +1,374 @@
+{
+  "name": "VK Teams — existing chat verification",
+  "description": "Read-only default flow. Mutation examples and the independent raw-event trigger are disabled. No credentials included.",
+  "nodes": [
+    {
+      "id": "manual",
+      "name": "Read Test Chat",
+      "type": "n8n-nodes-base.manualTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        0
+      ],
+      "parameters": {}
+    },
+    {
+      "id": "getMembers",
+      "name": "Get Members Page",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        0
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "getMembers",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "cursor": ""
+      }
+    },
+    {
+      "id": "getAdmins",
+      "name": "Get Admins",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        160
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "getAdmins",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID"
+      }
+    },
+    {
+      "id": "getBlockedUsers",
+      "name": "Get Blocked Users",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        320
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "getBlockedUsers",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID"
+      }
+    },
+    {
+      "id": "getPendingUsers",
+      "name": "Get Pending Users",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        300,
+        480
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "getPendingUsers",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID"
+      }
+    },
+    {
+      "id": "deleteMembers",
+      "name": "Example deleteMembers",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        650,
+        0
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "deleteMembers",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "members": "[\"REPLACE_WITH_TEST_USER_ID\"]"
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "blockUser",
+      "name": "Example blockUser",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        950,
+        0
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "blockUser",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "userId": "REPLACE_WITH_TEST_USER_ID",
+        "delLastMessages": false
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "unblockUser",
+      "name": "Example unblockUser",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        0
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "unblockUser",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "userId": "REPLACE_WITH_TEST_USER_ID"
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "resolvePending",
+      "name": "Example resolvePending",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        650,
+        180
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "resolvePending",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "userId": "REPLACE_WITH_TEST_USER_ID",
+        "everyone": false,
+        "approve": false
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "setTitle",
+      "name": "Example setTitle",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        950,
+        180
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "setTitle",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "title": "TEST CHAT"
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "setAbout",
+      "name": "Example setAbout",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        180
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "setAbout",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "about": "Test description"
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "setRules",
+      "name": "Example setRules",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        650,
+        360
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "setRules",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "rules": "Test rules"
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "sendActions",
+      "name": "Example sendActions",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        950,
+        360
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "sendActions",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "actions": [
+          "typing"
+        ]
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "pinMessage",
+      "name": "Example pinMessage",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        1250,
+        360
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "pinMessage",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "msgId": "REPLACE_WITH_TEST_MESSAGE_ID"
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "unpinMessage",
+      "name": "Example unpinMessage",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        650,
+        540
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "unpinMessage",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "msgId": "REPLACE_WITH_TEST_MESSAGE_ID"
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "setAvatar",
+      "name": "Example setAvatar",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        950,
+        540
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "setAvatar",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "binaryPropertyName": "data"
+      },
+      "disabled": true,
+      "notes": "Отключено и не подключено к запуску. Настройте отдельный тестовый чат и цель, подключите Manual Trigger и включите только эту операцию.",
+      "notesInFlow": true
+    },
+    {
+      "id": "events",
+      "name": "Observe Chat Events",
+      "type": "n8n-nodes-vk-teams.vkTeamsTrigger",
+      "typeVersion": 1,
+      "position": [
+        0,
+        900
+      ],
+      "disabled": true,
+      "parameters": {
+        "events": [
+          "message",
+          "editedMessage",
+          "deletedMessage",
+          "callbackQuery",
+          "newChatMembers",
+          "leftChatMembers",
+          "pinnedMessage",
+          "unpinnedMessage"
+        ],
+        "chatIds": "REPLACE_WITH_TEST_CHAT_ID",
+        "userIds": "",
+        "downloadFiles": false
+      },
+      "notes": "Включите вручную для отдельного тестового бота. Не запускайте второй long-poll consumer на том же токене.",
+      "notesInFlow": true
+    },
+    {
+      "id": "raw",
+      "name": "Raw Event",
+      "type": "n8n-nodes-base.noOp",
+      "typeVersion": 1,
+      "position": [
+        300,
+        900
+      ],
+      "parameters": {}
+    }
+  ],
+  "connections": {
+    "Read Test Chat": {
+      "main": [
+        [
+          {
+            "node": "Get Members Page",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Admins",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Blocked Users",
+            "type": "main",
+            "index": 0
+          },
+          {
+            "node": "Get Pending Users",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    },
+    "Observe Chat Events": {
+      "main": [
+        [
+          {
+            "node": "Raw Event",
+            "type": "main",
+            "index": 0
+          }
+        ]
+      ]
+    }
+  },
+  "settings": {
+    "executionOrder": "v1"
+  },
+  "active": false
+}

@@ -1,12 +1,16 @@
 type EventPayload = {
+	parent_topic?: { chatId?: string };
 	chat?: {
 		chatId?: string;
 	};
 	message?: {
+		parent_topic?: { chatId?: string };
 		chat?: {
 			chatId?: string;
 		};
 	};
+	addedBy?: { userId?: string };
+	removedBy?: { userId?: string };
 	from?: {
 		userId?: string;
 	};
@@ -18,6 +22,7 @@ type TriggerEvent = {
 };
 
 type EventFilters = {
+	includeThreads?: boolean;
 	chatIds?: Set<string>;
 	userIds?: Set<string>;
 };
@@ -40,7 +45,10 @@ function expandAllowedTypes(allowedTypes: Set<string>): Set<string> {
 	return expanded;
 }
 
-export function filterEvents<T extends { type?: string }>(events: T[], allowedTypes: Set<string>): T[] {
+export function filterEvents<T extends { type?: string }>(
+	events: T[],
+	allowedTypes: Set<string>,
+): T[] {
 	if (allowedTypes.size === 0) {
 		return events;
 	}
@@ -50,17 +58,29 @@ export function filterEvents<T extends { type?: string }>(events: T[], allowedTy
 	return events.filter((event) => event.type !== undefined && expandedAllowedTypes.has(event.type));
 }
 
+function eventUserId(event: TriggerEvent): string | undefined {
+	if (event.type === 'newChatMembers') return event.payload?.addedBy?.userId;
+	if (event.type === 'leftChatMembers') return event.payload?.removedBy?.userId;
+	return event.payload?.from?.userId;
+}
+
+function matchesChat(event: TriggerEvent, chatIds: Set<string>, includeThreads?: boolean): boolean {
+	const chatId = event.payload?.chat?.chatId ?? event.payload?.message?.chat?.chatId;
+	if (typeof chatId !== 'string' || chatId.length === 0) return false;
+	if (chatIds.has(chatId)) return true;
+	if (includeThreads !== true) return false;
+	const parentId =
+		event.payload?.parent_topic?.chatId ?? event.payload?.message?.parent_topic?.chatId;
+	return typeof parentId === 'string' && chatIds.has(parentId);
+}
+
 export function matchesEventFilters(event: TriggerEvent, filters: EventFilters): boolean {
 	if (filters.chatIds?.size) {
-		const chatId = event.payload?.chat?.chatId ?? event.payload?.message?.chat?.chatId;
-
-		if (chatId === undefined || !filters.chatIds.has(chatId)) {
-			return false;
-		}
+		if (!matchesChat(event, filters.chatIds, filters.includeThreads)) return false;
 	}
 
 	if (filters.userIds?.size) {
-		const userId = event.payload?.from?.userId;
+		const userId = eventUserId(event);
 
 		if (userId === undefined || !filters.userIds.has(userId)) {
 			return false;

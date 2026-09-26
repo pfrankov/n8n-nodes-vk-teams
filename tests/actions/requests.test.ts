@@ -1,3 +1,4 @@
+import { buildChatRequest } from '../../nodes/VkTeams/actions/chat.requests';
 import assert from 'node:assert/strict';
 import test from 'node:test';
 
@@ -5,7 +6,6 @@ import {
 	buildAnswerCallbackQueryRequest,
 	buildDeleteMessagesRequest,
 	buildEditTextRequest,
-	buildGetChatInfoRequest,
 	buildGetFileInfoRequest,
 	buildGetSelfRequest,
 	buildSendFileUploadRequest,
@@ -117,8 +117,8 @@ test('buildAnswerCallbackQueryRequest maps query id and text', () => {
 	});
 });
 
-test('buildGetChatInfoRequest uses chats getInfo endpoint', () => {
-	assert.deepEqual(buildGetChatInfoRequest({ chatId: 'chat-1' }), {
+test('chat.getInfo uses chats getInfo endpoint', () => {
+	assert.deepEqual(buildChatRequest('chat.getInfo', { chatId: 'chat-1' }), {
 		requestType: 'json',
 		method: 'GET',
 		endpoint: '/chats/getInfo',

@@ -6,13 +6,18 @@ test('VkTeams description exposes clickable keyboard for supported message opera
 	const node = new VkTeams();
 	const parseMode = node.description.properties.find((property) => property.name === 'parseMode');
 	const keyboard = node.description.properties.find((property) => property.name === 'keyboard');
-	const inlineKeyboard = node.description.properties.find((property) => property.name === 'inlineKeyboard');
+	const inlineKeyboard = node.description.properties.find(
+		(property) => property.name === 'inlineKeyboard',
+	);
 	const buttonFields =
-		(((inlineKeyboard as { options?: Array<{ values?: Array<{ options?: Array<{ values?: unknown[] }> }> }> })
-			.options?.[0].values?.[0].options?.[0].values as Array<{
+		((
+			inlineKeyboard as {
+				options?: Array<{ values?: Array<{ options?: Array<{ values?: unknown[] }> }> }>;
+			}
+		).options?.[0].values?.[0].options?.[0].values as Array<{
 			name?: string;
 			displayOptions?: { show?: Record<string, string[]> };
-		}>) ?? []);
+		}>) ?? [];
 	const callbackData = buttonFields.find((field) => field.name === 'callbackData');
 	const url = buttonFields.find((field) => field.name === 'url');
 
@@ -20,6 +25,7 @@ test('VkTeams description exposes clickable keyboard for supported message opera
 	assert.deepEqual(parseMode?.displayOptions?.show, {
 		operation: ['sendText', 'editText', 'sendFile'],
 		resource: ['message'],
+		formattingMode: ['parseMode'],
 	});
 	assert.equal(keyboard?.type, 'options');
 	assert.deepEqual(keyboard?.displayOptions?.show, {
@@ -106,6 +112,8 @@ test('VkTeams execute forwards multiple msgIds for deleteMessages', async () => 
 					values: [{ msgId: '1' }, { msgId: '2' }],
 				};
 			}
+			if (name === 'sendMode') return 'none';
+			if (name === 'formattingMode') return 'parseMode';
 			throw new Error(`Unexpected parameter ${name}`);
 		},
 		continueOnFail() {
@@ -179,6 +187,8 @@ test('VkTeams execute forwards parse mode and keyboard markup for sendText', asy
 					],
 				};
 			}
+			if (name === 'sendMode') return 'none';
+			if (name === 'formattingMode') return 'parseMode';
 			throw new Error(`Unexpected parameter ${name}`);
 		},
 		continueOnFail() {
@@ -228,6 +238,8 @@ test('VkTeams execute omits keyboard params when keyboard is none', async () => 
 			if (name === 'text') return 'hello';
 			if (name === 'parseMode') return '';
 			if (name === 'keyboard') return 'none';
+			if (name === 'sendMode') return 'none';
+			if (name === 'formattingMode') return 'parseMode';
 			throw new Error(`Unexpected parameter ${name}`);
 		},
 		continueOnFail() {
