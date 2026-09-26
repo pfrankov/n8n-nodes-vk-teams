@@ -64,6 +64,12 @@ function execution(
 }
 
 const operations: Array<[string, INodeParameters, string, Record<string, string | string[]>]> = [
+	[
+		'addMembers',
+		{ members: '["one","two"]' },
+		'members/add',
+		{ members: '[{"sn":"one"},{"sn":"two"}]' },
+	],
 	['getInfo', {}, 'getInfo', {}],
 	['getMembers', { cursor: 'page/+==' }, 'getMembers', { cursor: 'page/+==' }],
 	['getAdmins', {}, 'getAdmins', {}],
@@ -135,19 +141,43 @@ for (const [operation, fields, endpoint, params] of operations) {
 	});
 }
 
-for (const value of ['={{ $json.members }}', '={{ JSON.stringify($json.members) }}']) {
-	test(`member lists survive n8n expression normalization: ${value}`, async () => {
-		const { node, context, normalized, requests } = execution(
-			{ operation: 'deleteMembers', members: value },
-			[{ members: ['first&token=ignored'] }, { members: ['second', 'third'] }],
-		);
-		assert.equal(normalized.members, value);
-		await node.execute.call(context);
-		assert.deepEqual(
-			requests.map((url) => JSON.parse(url.searchParams.get('members')!)),
-			[[{ sn: 'first&token=ignored' }], [{ sn: 'second' }, { sn: 'third' }]],
-		);
+test('Create Chat shows the private-method notice and never sends hidden Chat ID', async () => {
+	const { node, context, requests } = execution({
+		operation: 'createChat',
+		name: 'Тестовый чат',
+		about: '',
+		rules: '',
+		members: '["one&token=ignored"]',
+		public: false,
+		defaultRole: 'member',
+		joinModeration: false,
 	});
+	const notice = node.description.properties.find((p) => p.name === 'privateChatMethodNotice');
+	assert.deepEqual(notice?.displayOptions?.show?.operation, ['createChat', 'addMembers']);
+	await node.execute.call(context);
+	assert.equal(requests.length, 1);
+	assert.equal(requests[0].pathname, '/bot/v1/chats/createChat');
+	assert.equal(requests[0].searchParams.has('chatId'), false);
+	assert.equal(requests[0].searchParams.get('name'), 'Тестовый чат');
+	assert.equal(requests[0].searchParams.get('members'), '[{"sn":"one&token=ignored"}]');
+	assert.equal(requests[0].searchParams.get('token'), 'real-test-token');
+});
+
+for (const operation of ['deleteMembers', 'addMembers']) {
+	for (const value of ['={{ $json.members }}', '={{ JSON.stringify($json.members) }}']) {
+		test(`${operation} member lists survive n8n expression normalization: ${value}`, async () => {
+			const { node, context, normalized, requests } = execution(
+				{ operation, members: value },
+				[{ members: ['first&token=ignored'] }, { members: ['second', 'third'] }],
+			);
+			assert.equal(normalized.members, value);
+			await node.execute.call(context);
+			assert.deepEqual(
+				requests.map((url) => JSON.parse(url.searchParams.get('members')!)),
+				[[{ sn: 'first&token=ignored' }], [{ sn: 'second' }, { sn: 'third' }]],
+			);
+		});
+	}
 }
 
 test('continueOnFail keeps item pairing and does not send an empty member list', async () => {
@@ -217,16 +247,31 @@ test('chat operation selector, registry and builders cover the same bounded scop
 	);
 	for (const option of options)
 		assert.equal(resolveAction(`chat.${option.value}`).key, `chat.${option.value}`);
-	for (const op of ['createChat', 'addMembers', 'toString', '__proto__'])
+	for (const op of ['toString', '__proto__'])
 		assert.throws(() => resolveAction(`chat.${op}`));
 });
 
-test('chat API permission failures are not returned as successful output', async () => {
-	const { node, context, response, requests } = execution({ operation: 'getMembers' });
-	Object.assign(response, { ok: false, description: 'Insufficient rights' });
-	await assert.rejects(node.execute.call(context), /VK Teams API error: Insufficient rights/);
-	assert.equal(requests.length, 1);
-});
+for (const operation of ['getMembers', 'createChat', 'addMembers']) {
+	test(`${operation} permission failures are not returned as successful output`, async () => {
+		const { node, context, response, requests } = execution({
+			operation,
+			name: 'Test chat',
+			members: '["one"]',
+		});
+		Object.assign(response, { ok: false, description: 'Insufficient rights' });
+		await assert.rejects(node.execute.call(context), /VK Teams API error: Insufficient rights/);
+		assert.equal(requests.length, 1);
+	});
+}
+
+for (const ok of [true, false]) {
+	test(`Add Members preserves per-member failures with ok=${ok}`, async () => {
+		const { node, context, response } = execution({ operation: 'addMembers', members: '["one"]' });
+		Object.assign(response, { ok, failures: [{ id: 'one', error: 'user_already_added' }] });
+		const result = await node.execute.call(context);
+		assert.deepEqual(result[0][0].json, response);
+	});
+}
 
 test('chat API errors honor Continue On Fail without retrying', async () => {
 	const { node, context, response, requests } = execution({ operation: 'getMembers' }, [{}], true);

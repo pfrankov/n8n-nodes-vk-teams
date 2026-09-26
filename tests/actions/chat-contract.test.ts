@@ -13,7 +13,7 @@ const workflow = JSON.parse(
 	readFileSync('docs/workflows/vk-teams-chat-verification.workflow.json', 'utf8'),
 );
 
-test('schema covers every implemented chat method, and no private methods', () => {
+test('schema covers every implemented chat method and marks private availability', () => {
 	const documented = Object.entries(schema.paths)
 		.filter(([path]) => path.startsWith('/chats/'))
 		.map(
@@ -21,8 +21,10 @@ test('schema covers every implemented chat method, and no private methods', () =
 				Object.values(methods as Record<string, { operationId: string }>)[0].operationId,
 		);
 	assert.deepEqual(documented.sort(), [...Object.keys(chatMethods), 'chat.setAvatar'].sort());
-	assert.equal(schema.paths['/chats/createChat'], undefined);
-	assert.equal(schema.paths['/chats/members/add'], undefined);
+	for (const path of ['/chats/createChat', '/chats/members/add'])
+		assert.match(schema.paths[path].get['x-api-availability'], /myteam_only\/privateMethod/);
+	assert.equal(schema.paths['/chats/createChat'].get.parameters.some((p: { $ref: string }) => p.$ref.endsWith('/chatId')), false);
+	assert.equal(schema.components.parameters.initialMembers.required, false);
 	assert.deepEqual(
 		schema.components.parameters.members.content['application/json'].schema.items.required,
 		['sn'],
@@ -90,7 +92,9 @@ test('chat example has a read-only default graph, disabled changes, and no crede
 			assert.equal(item.parameters.events.length, 8);
 		}
 	}
-	assert.equal(exampleOperations.length, 15);
+	assert.equal(exampleOperations.length, 17);
+	assert.ok(exampleOperations.includes('createChat'));
+	assert.ok(exampleOperations.includes('addMembers'));
 	assert.deepEqual(
 		workflow.connections['Read Test Chat'].main[0]
 			.map((edge: { node: string }) => edge.node)

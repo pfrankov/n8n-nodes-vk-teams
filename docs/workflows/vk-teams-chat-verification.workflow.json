@@ -75,6 +75,49 @@
       }
     },
     {
+      "id": "createChat",
+      "name": "Example createChat (private)",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        650,
+        -360
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "createChat",
+        "name": "REPLACE_WITH_TEST_CHAT_NAME",
+        "about": "",
+        "rules": "",
+        "members": "[]",
+        "public": false,
+        "defaultRole": "member",
+        "joinModeration": false
+      },
+      "disabled": true,
+      "notes": "Private/myteam_only: может не работать на этом сервере. Отключено и не подключено. Проверьте название, затем запустите отдельно и сохраните sn созданного тестового чата.",
+      "notesInFlow": true
+    },
+    {
+      "id": "addMembers",
+      "name": "Example addMembers (private)",
+      "type": "n8n-nodes-vk-teams.vkTeams",
+      "typeVersion": 1,
+      "position": [
+        950,
+        -360
+      ],
+      "parameters": {
+        "resource": "chat",
+        "operation": "addMembers",
+        "chatId": "REPLACE_WITH_TEST_CHAT_ID",
+        "members": "[\"REPLACE_WITH_TEST_USER_ID\"]"
+      },
+      "disabled": true,
+      "notes": "Private/myteam_only: может не работать на этом сервере. Отключено и не подключено. Используйте только тестовый чат и проверьте failures в ответе.",
+      "notesInFlow": true
+    },
+    {
       "id": "deleteMembers",
       "name": "Example deleteMembers",
       "type": "n8n-nodes-vk-teams.vkTeams",

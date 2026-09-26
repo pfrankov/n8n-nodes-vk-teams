@@ -1,7 +1,7 @@
 openapi: 3.1.0
 info:
   title: VK Teams Bot API subset for n8n-nodes-vk-teams
-  version: 0.1.0
+  version: 0.3.0
   description: >
     Self-contained OpenAPI-style contract for the VK Teams Bot API methods exposed by
     this package. It is based on the public VK Teams Bot API swagger fragments, the
@@ -307,6 +307,53 @@ paths:
               schema:
                 oneOf:
                   - $ref: "#/components/schemas/Chat"
+                  - $ref: "#/components/schemas/ApiError"
+  /chats/createChat:
+    get:
+      tags: [chat]
+      operationId: chat.createChat
+      x-n8n-operation: chat.createChat
+      x-api-availability: myteam_only/privateMethod; server support and bot permissions vary.
+      x-verification: Official API and Python SDK contract; no live bot test.
+      summary: Create a chat where the private method is available.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatName"
+        - $ref: "#/components/parameters/chatAbout"
+        - $ref: "#/components/parameters/chatRules"
+        - $ref: "#/components/parameters/initialMembers"
+        - $ref: "#/components/parameters/chatPublic"
+        - $ref: "#/components/parameters/defaultRole"
+        - $ref: "#/components/parameters/joinModeration"
+      responses:
+        "200":
+          description: Created chat ID or logical API error.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ChatCreatedResponse"
+                  - $ref: "#/components/schemas/ApiError"
+  /chats/members/add:
+    get:
+      tags: [chat]
+      operationId: chat.addMembers
+      x-n8n-operation: chat.addMembers
+      x-api-availability: myteam_only/privateMethod; server support and bot permissions vary.
+      x-verification: Official API and Python SDK contract; no live bot test.
+      summary: Add members where the private method is available.
+      parameters:
+        - $ref: "#/components/parameters/token"
+        - $ref: "#/components/parameters/chatId"
+        - $ref: "#/components/parameters/members"
+      responses:
+        "200":
+          description: Result may include per-member failures; inspect the response.
+          content:
+            application/json:
+              schema:
+                oneOf:
+                  - $ref: "#/components/schemas/ChatAddMembersResponse"
                   - $ref: "#/components/schemas/ApiError"
   /files/getInfo:
     get:
@@ -914,6 +961,48 @@ components:
         type: string
         minLength: 1
       description: New nonempty title.
+    chatName:
+      name: name
+      in: query
+      required: true
+      schema:
+        type: string
+        minLength: 1
+      description: New chat name.
+    chatAbout:
+      name: about
+      in: query
+      required: false
+      schema:
+        type: string
+    chatRules:
+      name: rules
+      in: query
+      required: false
+      schema:
+        type: string
+    chatPublic:
+      name: public
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
+    defaultRole:
+      name: defaultRole
+      in: query
+      required: false
+      schema:
+        type: string
+        default: member
+      description: Server-defined role; the official parameter does not enumerate allowed values.
+    joinModeration:
+      name: joinModeration
+      in: query
+      required: false
+      schema:
+        type: boolean
+        default: false
     about:
       name: about
       in: query
@@ -988,6 +1077,24 @@ components:
                   type: string
                   minLength: 1
               additionalProperties: false
+    initialMembers:
+      name: members
+      in: query
+      required: false
+      description: Optional JSON-encoded array of distinct user IDs in sn objects.
+      content:
+        application/json:
+          schema:
+            type: array
+            uniqueItems: true
+            items:
+              type: object
+              required: [sn]
+              properties:
+                sn:
+                  type: string
+                  minLength: 1
+              additionalProperties: false
     actions:
       name: actions
       in: query
@@ -1054,6 +1161,32 @@ components:
         ok:
           type: boolean
           const: true
+      additionalProperties: true
+    ChatCreatedResponse:
+      type: object
+      required: [sn]
+      properties:
+        ok:
+          type: boolean
+        sn:
+          type: string
+      additionalProperties: true
+    ChatAddMembersResponse:
+      type: object
+      required: [ok]
+      properties:
+        ok:
+          type: boolean
+        failures:
+          type: array
+          items:
+            type: object
+            properties:
+              id:
+                type: string
+              error:
+                type: string
+            additionalProperties: true
       additionalProperties: true
     MessageResponse:
       type: object

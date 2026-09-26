@@ -37,6 +37,6 @@ test('all displayed operations resolve through the executor registry and have an
 			visible.push(key);
 		}
 	}
-	assert.equal(visible.length, 28);
+	assert.equal(visible.length, 30);
 	assert.deepEqual(visible.sort(), [...documented].sort());
 });

@@ -81,6 +81,20 @@ export async function sendJsonRequest(
 
 	const response = await context.helpers.httpRequest(options as IHttpRequestOptions);
 
+	// The documented partial add-members result may have ok=false with per-user failures.
+	if (
+		request.endpoint === '/chats/members/add' &&
+		isRecord(response) &&
+		response.ok === false &&
+		!Object.prototype.hasOwnProperty.call(response, 'description') &&
+		!Object.prototype.hasOwnProperty.call(response, 'error') &&
+		Array.isArray(response.failures) &&
+		response.failures.length > 0 &&
+		response.failures.every(isRecord)
+	) {
+		return response;
+	}
+
 	return assertSuccessfulVkTeamsResponse(response);
 }
 

@@ -1,7 +1,37 @@
 import { booleanParam, stringIds, stringValue } from '../shared/validation';
 
 type ChatInput = Record<string, unknown>;
-type ChatMethod = { endpoint: string; params(input: ChatInput): Record<string, unknown> };
+type ChatMethod = {
+	endpoint: string;
+	chatId?: false;
+	params(input: ChatInput): Record<string, unknown>;
+};
+
+function membersParam(value: unknown, optional = false): string | undefined {
+	let parsed = value;
+	if (typeof parsed === 'string') {
+		try {
+			parsed = JSON.parse(parsed);
+		} catch {
+			throw new Error('members must be a JSON array of string IDs');
+		}
+	}
+	if (optional && Array.isArray(parsed) && parsed.length === 0) return undefined;
+	return JSON.stringify(stringIds(parsed, 'members').map((sn) => ({ sn })));
+}
+
+function createChatParams(input: ChatInput): Record<string, unknown> {
+	const members = membersParam(input.members === undefined ? [] : input.members, true);
+	return {
+		name: stringValue(input.name, 'name'),
+		...(input.about === undefined ? {} : { about: stringValue(input.about, 'about', true) }),
+		...(input.rules === undefined ? {} : { rules: stringValue(input.rules, 'rules', true) }),
+		...(members === undefined ? {} : { members }),
+		public: booleanParam(input.public === undefined ? false : input.public, 'public'),
+		defaultRole: stringValue(input.defaultRole === undefined ? 'member' : input.defaultRole, 'defaultRole'),
+		joinModeration: booleanParam(input.joinModeration === undefined ? false : input.joinModeration, 'joinModeration'),
+	};
+}
 
 function actions(input: ChatInput): string | string[] {
 	const value = input.actions;
@@ -31,6 +61,11 @@ function pendingTarget(input: ChatInput): Record<string, unknown> {
 }
 
 export const chatMethods: Record<string, ChatMethod> = {
+	'chat.createChat': {
+		endpoint: '/chats/createChat',
+		chatId: false,
+		params: createChatParams,
+	},
 	'chat.getInfo': { endpoint: '/chats/getInfo', params: () => ({}) },
 	'chat.getMembers': {
 		endpoint: '/chats/getMembers',
@@ -44,9 +79,11 @@ export const chatMethods: Record<string, ChatMethod> = {
 	'chat.getPendingUsers': { endpoint: '/chats/getPendingUsers', params: () => ({}) },
 	'chat.deleteMembers': {
 		endpoint: '/chats/members/delete',
-		params: (input) => ({
-			members: JSON.stringify(stringIds(input.members, 'members').map((sn) => ({ sn }))),
-		}),
+		params: (input) => ({ members: membersParam(input.members) }),
+	},
+	'chat.addMembers': {
+		endpoint: '/chats/members/add',
+		params: (input) => ({ members: membersParam(input.members) }),
 	},
 	'chat.setTitle': {
 		endpoint: '/chats/setTitle',
@@ -98,7 +135,10 @@ export function buildChatRequest(actionKey: string, input: ChatInput) {
 		requestType: 'json' as const,
 		method: 'GET' as const,
 		endpoint: method.endpoint,
-		params: { chatId: stringValue(input.chatId, 'chatId'), ...method.params(input) },
+		params:
+			method.chatId === false
+				? method.params(input)
+				: { chatId: stringValue(input.chatId, 'chatId'), ...method.params(input) },
 	};
 }
 

@@ -8,6 +8,19 @@ import {
 import { executeAction } from '../../nodes/VkTeams/actions/execute';
 
 const cases: Array<[string, Record<string, unknown>, string, Record<string, unknown>]> = [
+	[
+		'createChat',
+		{ name: 'Новая группа', about: '', rules: '', members: [], public: false, defaultRole: 'member', joinModeration: false },
+		'/chats/createChat',
+		{ name: 'Новая группа', about: '', rules: '', public: 'false', defaultRole: 'member', joinModeration: 'false' },
+	],
+	[
+		'createChat',
+		{ name: 'Группа', members: ['one', 'two'], public: true, joinModeration: true, defaultRole: 'member' },
+		'/chats/createChat',
+		{ name: 'Группа', members: '[{"sn":"one"},{"sn":"two"}]', public: 'true', defaultRole: 'member', joinModeration: 'true' },
+	],
+	['addMembers', { members: ['one'] }, '/chats/members/add', { members: '[{"sn":"one"}]' }],
 	['getMembers', {}, '/chats/getMembers', {}],
 	['getMembers', { cursor: 'opaque/+==' }, '/chats/getMembers', { cursor: 'opaque/+==' }],
 	['getAdmins', {}, '/chats/getAdmins', {}],
@@ -74,7 +87,7 @@ for (const [operation, input, endpoint, params] of cases) {
 			requestType: 'json',
 			method: 'GET',
 			endpoint,
-			params: { chatId: 'chat', ...params },
+			params: operation === 'createChat' ? params : { chatId: 'chat', ...params },
 		};
 		assert.deepEqual(buildChatRequest(`chat.${operation}`, { chatId: 'chat', ...input }), expected);
 		const calls: unknown[] = [];
@@ -122,6 +135,14 @@ const invalid: Array<[string, Record<string, unknown>]> = [
 	['deleteMembers', { members: [123] }],
 	['deleteMembers', { members: [{ sn: 'one' }] }],
 	['deleteMembers', { members: ['one', 'one'] }],
+	['createChat', { name: '' }],
+	['createChat', { name: 'Group', members: ['one', 'one'] }],
+	['createChat', { name: 'Group', members: null }],
+	['createChat', { name: 'Group', public: null }],
+	['createChat', { name: 'Group', public: 'true' }],
+	['createChat', { name: 'Group', joinModeration: 1 }],
+	['addMembers', { members: [] }],
+	['addMembers', { members: [123] }],
 	['resolvePending', { approve: true }],
 	['resolvePending', { approve: true, everyone: false }],
 	['resolvePending', { approve: true, everyone: true, userId: 'one' }],
@@ -136,8 +157,6 @@ const invalid: Array<[string, Record<string, unknown>]> = [
 	['sendActions', { actions: ['recording'] }],
 	['sendActions', { actions: 'typing' }],
 	['pinMessage', { msgId: 9007199254740992 }],
-	['createChat', { title: 'unsupported' }],
-	['addMembers', { members: ['one'] }],
 	['toString', {}],
 	['__proto__', {}],
 ];
@@ -172,6 +191,7 @@ for (const [operation, input] of invalid) {
 test('every chat request requires an explicit nonempty chat ID', () => {
 	for (const chatId of [undefined, '', '   ', 123, null]) {
 		for (const [operation, input] of cases) {
+			if (operation === 'createChat') continue;
 			assert.throws(() => buildChatRequest(`chat.${operation}`, { ...input, chatId }));
 		}
 	}

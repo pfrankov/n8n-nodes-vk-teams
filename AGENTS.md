@@ -38,7 +38,7 @@ The package is intentionally split into trigger and action nodes, similar to Tel
 - File download is a two-step flow:
   1. `GET /files/getInfo`
   2. download the returned external URL
-- `chats/createChat` and `chats/members/add` are separate private/on-premise capabilities. Do not expose them as generally available without an explicit scope expansion and deployment evidence. `chats/members/delete` and the supported moderation methods are ordinary SDK methods; their availability still depends on server permissions/configuration.
+- `chats/createChat` and `chats/members/add` are marked `myteam_only`/`privateMethod` by the official API. They are exposed with an explicit UI availability notice; server support and bot permissions remain unverified for any given installation. `chats/members/delete` and the supported moderation methods are ordinary SDK methods; their availability still depends on server permissions/configuration.
 - Chat operations use explicit targets and an endpoint allowlist. Never infer everyone=true from a missing user ID. Member removal accepts a nonempty JSON array of distinct string IDs and serializes one query parameter containing [{"sn":"..."}]. Never coerce ID numbers or spread user input into query parameters.
 - `chat.sendActions` serializes an array as repeated `actions` query keys; no actions must still produce a single empty `actions=`. Cross-check transport serialization, not just SDK method signatures.
 - Route all network uploads through n8n helpers; no direct fetch or fallback that bypasses n8n policy. Native FormData is serialized to a Buffer with its Content-Type before passing it to the helper. Do not add multipart dependencies. All Bot API redirects are disabled and the HTTP timeout is 300 seconds; uploads remain fully buffered. Authentication must always come from credentials, never from request parameters.
@@ -83,6 +83,8 @@ Action operations:
 - `message.deleteMessages`
 - `callback.answerCallbackQuery`
 - `chat.getInfo`
+- `chat.createChat`
+- `chat.addMembers`
 - `chat.getMembers`
 - `chat.getAdmins`
 - `chat.getBlockedUsers`
@@ -108,7 +110,7 @@ Action operations:
 
 - Trigger file download currently inspects top-level message parts only.
 - Uploads are fully buffered; this package does not offer streaming or resumable uploads.
-- Supported scope is not exhaustive server API coverage: private chat creation/member addition and other endpoints/events outside the documented list are not exposed.
+- Supported scope is not exhaustive server API coverage. The two exposed private methods may fail on a given server; other endpoints/events outside the documented list remain unexposed.
 - File ID reuse works on the same server; do not claim cross-installation portability. Full upload buffering remains a known limit. SDK-only changedChatInfo, deeplink and request-id idempotency are not exposed without a verified contract.
 - No send-and-wait behavior yet.
 - No declarative node implementation here by design; binary handling and trigger behavior make programmatic style simpler and easier to test.

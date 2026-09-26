@@ -54,6 +54,21 @@ test('sendJsonRequest rejects logical VK Teams API errors', async () => {
 	);
 });
 
+test('only the documented Add Members partial result preserves ok=false failures', async () => {
+	const response = { ok: false, failures: [{ id: 'one', error: 'user_already_added' }] };
+	const context = { helpers: { httpRequest: async () => response } } as never;
+	assert.equal(
+		await sendJsonRequest(context, credentials, {
+			method: 'GET', endpoint: '/chats/members/add', params: { chatId: 'chat' },
+		}),
+		response,
+	);
+	await assert.rejects(
+		sendJsonRequest(context, credentials, { method: 'GET', endpoint: '/chats/getInfo', params: {} }),
+		/VK Teams API error/,
+	);
+});
+
 test('sendUploadRequest rejects logical VK Teams API errors', async () => {
 	await assert.rejects(
 		sendUploadRequest(

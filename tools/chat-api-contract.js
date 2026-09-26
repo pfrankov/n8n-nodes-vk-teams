@@ -1,5 +1,7 @@
 // Independent endpoint/parameter expectations cross-checked against the SDKs in docs/issue-1-api-review.md.
 const definitions = [
+	['createChat', 'createChat', ['chatName', 'chatAbout', 'chatRules', 'initialMembers', 'chatPublic', 'defaultRole', 'joinModeration'], 'ChatCreatedResponse'],
+	['addMembers', 'members/add', ['members'], 'ChatAddMembersResponse'],
 	['getMembers', 'getMembers', ['cursor'], 'ChatMembersResponse'],
 	['getAdmins', 'getAdmins', [], 'ChatAdminsResponse'],
 	['getBlockedUsers', 'getBlockedUsers', [], 'ChatUsersResponse'],
@@ -22,7 +24,7 @@ module.exports = definitions.map(([name, path, fields, response]) => ({
 	n8nOperation: `chat.${name}`,
 	path: `/chats/${path}`,
 	method: name === 'setAvatar' ? 'post' : 'get',
-	params: ['token', 'chatId', ...fields],
+	params: ['token', ...(name === 'createChat' ? [] : ['chatId']), ...fields],
 	successSchemas: [response],
 	requestBodySchemas: name === 'setAvatar' ? ['ChatAvatarUpload'] : [],
 	sourceEndpoint: `/chats/${path}`,

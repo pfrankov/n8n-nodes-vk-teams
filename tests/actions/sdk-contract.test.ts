@@ -8,7 +8,7 @@ import { VkTeamsTrigger } from '../../nodes/VkTeamsTrigger/VkTeamsTrigger.node';
 
 const schema = parse(readFileSync('docs/vk-teams-bot-api.openapi.yaml', 'utf8'));
 test('SDK schema distinguishes File ID GET from binary POST without inventing endpoints', () => {
-	assert.equal(Object.keys(schema.paths).length, 28);
+	assert.equal(Object.keys(schema.paths).length, 30);
 	for (const name of ['sendFile', 'sendVoice']) {
 		const operations = schema.paths[`/messages/${name}`];
 		assert.equal(operations.get['x-n8n-operation'], operations.post['x-n8n-operation']);
@@ -31,7 +31,7 @@ test('SDK schema distinguishes File ID GET from binary POST without inventing en
 	]);
 	assert.deepEqual(schema.components.schemas.ThreadSubscriber.required, ['sn']);
 	assert.equal(schema.paths['/messages/sendTextWithDeeplink'], undefined);
-	assert.equal(schema.paths['/chats/createChat'], undefined);
+	assert.equal(schema.paths['/chats/createChat'].get.operationId, 'chat.createChat');
 });
 test('SDK examples keep all API nodes disabled and retain fields after n8n normalization', () => {
 	const workflow = JSON.parse(

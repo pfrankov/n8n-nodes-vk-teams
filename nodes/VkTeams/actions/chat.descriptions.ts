@@ -9,7 +9,9 @@ export const chatProperties: INodeProperties[] = [
 		displayOptions: { show: { resource: ['chat'] } },
 		default: 'getInfo',
 		options: [
+			{ name: 'Add Members', value: 'addMembers', action: 'Add selected chat members' },
 			{ name: 'Block User', value: 'blockUser', action: 'Block a chat member' },
+			{ name: 'Create Chat', value: 'createChat', action: 'Create a chat' },
 			{ name: 'Delete Members', value: 'deleteMembers', action: 'Remove selected chat members' },
 			{ name: 'Get Admins', value: 'getAdmins', action: 'Get chat administrators' },
 			{ name: 'Get Blocked Users', value: 'getBlockedUsers', action: 'Get blocked chat users' },
@@ -37,7 +39,15 @@ export const chatProperties: INodeProperties[] = [
 		type: 'string',
 		default: '',
 		required: true,
-		displayOptions: { show: { resource: ['chat'] } },
+		displayOptions: { show: { resource: ['chat'] }, hide: { operation: ['createChat'] } },
+	},
+	{
+		displayName:
+			'These methods are marked myteam_only/private by VK Teams. Create Chat and Add Members may not work on every installation; the server checks availability and bot permissions.',
+		name: 'privateChatMethodNotice',
+		type: 'notice',
+		default: '',
+		displayOptions: { show: { resource: ['chat'], operation: ['createChat', 'addMembers'] } },
 	},
 	{
 		displayName:
@@ -45,7 +55,16 @@ export const chatProperties: INodeProperties[] = [
 		name: 'chatPermissions',
 		type: 'notice',
 		default: '',
-		displayOptions: { show: { resource: ['chat'] } },
+		displayOptions: { show: { resource: ['chat'] }, hide: { operation: ['createChat'] } },
+	},
+	{
+		displayName: 'Name',
+		name: 'name',
+		type: 'string',
+		default: '',
+		required: true,
+		description: 'Name of the new chat',
+		displayOptions: { show: { resource: ['chat'], operation: ['createChat'] } },
 	},
 	{
 		displayName: 'Cursor',
@@ -63,8 +82,10 @@ export const chatProperties: INodeProperties[] = [
 		default: '[]',
 		required: true,
 		description:
-			'Nonempty JSON array of user ID strings to remove, for example ["user@example.com"]. Expressions can return an array. This removes users without blocking them.',
-		displayOptions: { show: { resource: ['chat'], operation: ['deleteMembers'] } },
+			'JSON array of distinct user ID strings, for example ["user@example.com"]. Optional for Create Chat; Add Members and Delete Members require at least one ID. Expressions can return an array.',
+		displayOptions: {
+			show: { resource: ['chat'], operation: ['createChat', 'addMembers', 'deleteMembers'] },
+		},
 	},
 	{
 		displayName: 'User ID',
@@ -135,16 +156,40 @@ export const chatProperties: INodeProperties[] = [
 		name: 'about',
 		type: 'string',
 		default: '',
-		description: 'Chat description. Leave empty to clear it.',
-		displayOptions: { show: { resource: ['chat'], operation: ['setAbout'] } },
+		description: 'Chat description. Empty leaves it blank on creation or clears it with Set About.',
+		displayOptions: { show: { resource: ['chat'], operation: ['createChat', 'setAbout'] } },
 	},
 	{
 		displayName: 'Rules',
 		name: 'rules',
 		type: 'string',
 		default: '',
-		description: 'Chat rules. Leave empty to clear them.',
-		displayOptions: { show: { resource: ['chat'], operation: ['setRules'] } },
+		description: 'Chat rules. Empty leaves them blank on creation or clears them with Set Rules.',
+		displayOptions: { show: { resource: ['chat'], operation: ['createChat', 'setRules'] } },
+	},
+	{
+		displayName: 'Public',
+		name: 'public',
+		type: 'boolean',
+		default: false,
+		description: 'Whether the new chat is public',
+		displayOptions: { show: { resource: ['chat'], operation: ['createChat'] } },
+	},
+	{
+		displayName: 'Default Role',
+		name: 'defaultRole',
+		type: 'string',
+		default: 'member',
+		description: 'Default role for new members; supported values depend on the server',
+		displayOptions: { show: { resource: ['chat'], operation: ['createChat'] } },
+	},
+	{
+		displayName: 'Join Moderation',
+		name: 'joinModeration',
+		type: 'boolean',
+		default: false,
+		description: 'Whether new join requests require moderation',
+		displayOptions: { show: { resource: ['chat'], operation: ['createChat'] } },
 	},
 	{
 		displayName: 'Message ID',
