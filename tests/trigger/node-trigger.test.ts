@@ -10,11 +10,13 @@ test('VkTeamsTrigger description no longer uses polling trigger contract', () =>
 	assert.equal(typeof node.trigger, 'function');
 });
 
-test('VkTeamsTrigger description no longer exposes custom pollTime field', () => {
+test('VkTeamsTrigger exposes Long Poll Timeout with a safe default under 60s', () => {
 	const node = new VkTeamsTrigger();
-	const propertyNames = node.description.properties.map((property) => property.name);
+	const pollTime = node.description.properties.find((property) => property.name === 'pollTime');
 
-	assert.equal(propertyNames.includes('pollTime'), false);
+	assert.ok(pollTime);
+	assert.equal(pollTime?.type, 'number');
+	assert.equal(pollTime?.default, 20);
 });
 
 test('VkTeamsTrigger manual trigger performs one long-poll request with fixed timeout', async () => {
@@ -41,6 +43,7 @@ test('VkTeamsTrigger manual trigger performs one long-poll request with fixed ti
 			if (name === 'chatIds') return '';
 			if (name === 'userIds') return '';
 			if (name === 'downloadFiles') return false;
+			if (name === 'pollTime') return 20;
 			return defaultValue;
 		},
 		emit(data: unknown) {
@@ -77,7 +80,7 @@ test('VkTeamsTrigger manual trigger performs one long-poll request with fixed ti
 
 	assert.equal(
 		requests[0]?.url,
-		'https://myteam.example/bot/v1/events/get?token=token&lastEventId=0&pollTime=60',
+		'https://myteam.example/bot/v1/events/get?token=token&lastEventId=0&pollTime=20',
 	);
 	assert.equal(state.lastEventId, 41);
 	assert.equal(emitted.length, 1);
@@ -110,6 +113,7 @@ test('VkTeamsTrigger active trigger starts continuous loop immediately', async (
 			if (name === 'chatIds') return '';
 			if (name === 'userIds') return '';
 			if (name === 'downloadFiles') return false;
+			if (name === 'pollTime') return 20;
 			return defaultValue;
 		},
 		emit() {},
@@ -133,6 +137,6 @@ test('VkTeamsTrigger active trigger starts continuous loop immediately', async (
 
 	assert.equal(
 		requests[0]?.url,
-		'https://myteam.example/bot/v1/events/get?token=token&lastEventId=0&pollTime=60',
+		'https://myteam.example/bot/v1/events/get?token=token&lastEventId=0&pollTime=20',
 	);
 });

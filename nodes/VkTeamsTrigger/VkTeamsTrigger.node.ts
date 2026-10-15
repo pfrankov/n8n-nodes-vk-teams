@@ -14,7 +14,10 @@ import { runLongPollLoop, waitForLongPollRetry } from './shared/loop';
 import { normalizeLastEventId } from './shared/state';
 import { downloadBinary, sendJsonRequest } from '../VkTeams/shared/runtime';
 
-const LONG_POLL_TIMEOUT_SECONDS = 60;
+/** Default under typical nginx ~60s proxy limits that return HTML 500 (issue #5). */
+const DEFAULT_LONG_POLL_TIMEOUT_SECONDS = 20;
+const MIN_LONG_POLL_TIMEOUT_SECONDS = 1;
+const MAX_LONG_POLL_TIMEOUT_SECONDS = 55;
 
 const triggerProperties: INodeProperties[] = [
 	{
@@ -62,7 +65,32 @@ const triggerProperties: INodeProperties[] = [
 		type: 'boolean',
 		default: false,
 	},
+	{
+		displayName: 'Long Poll Timeout',
+		name: 'pollTime',
+		type: 'number',
+		default: DEFAULT_LONG_POLL_TIMEOUT_SECONDS,
+		typeOptions: {
+			minValue: MIN_LONG_POLL_TIMEOUT_SECONDS,
+			maxValue: MAX_LONG_POLL_TIMEOUT_SECONDS,
+		},
+		description:
+			'Seconds to wait for each /events/get long-poll. Keep below proxy idle limits; ~60 often returns HTTP 500 from nginx on some VK Teams endpoints.',
+	},
 ];
+
+
+function resolvePollTimeSeconds(value: unknown): number {
+	const numeric = typeof value === 'number' ? value : Number(value);
+	if (!Number.isFinite(numeric)) {
+		return DEFAULT_LONG_POLL_TIMEOUT_SECONDS;
+	}
+
+	return Math.min(
+		MAX_LONG_POLL_TIMEOUT_SECONDS,
+		Math.max(MIN_LONG_POLL_TIMEOUT_SECONDS, Math.trunc(numeric)),
+	);
+}
 
 function parseIdSet(value: string): Set<string> | undefined {
 	const entries = value
@@ -184,7 +212,7 @@ export class VkTeamsTrigger implements INodeType {
 					},
 					{
 						lastEventId: normalizeLastEventId(state.lastEventId),
-						pollTime: LONG_POLL_TIMEOUT_SECONDS,
+						pollTime: resolvePollTimeSeconds(this.getNodeParameter('pollTime', DEFAULT_LONG_POLL_TIMEOUT_SECONDS)),
 						allowedTypes: new Set(this.getNodeParameter('events') as string[]),
 						chatIds: parseIdSet(this.getNodeParameter('chatIds', '') as string),
 						includeThreads: this.getNodeParameter('includeThreads', false) === true,
