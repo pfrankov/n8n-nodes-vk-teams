@@ -80,11 +80,18 @@ export function isTransientLongPollError(error: unknown): boolean {
 
 	const message = toError(error).message.toLowerCase();
 
+	// Logical API failures often arrive as HTTP 200 + { ok: false }. sendJsonRequest()
+	// turns those into a statusless ApplicationError("VK Teams API error: ..."), so we
+	// must not treat them as transient network blips (issue #5 review).
 	if (
+		message.startsWith('vk teams api error:') ||
+		message.includes('vk teams api returned an invalid response') ||
 		message.includes('status code 401') ||
 		message.includes('status code 403') ||
 		message.includes('status code 400') ||
 		message.includes('status code 404') ||
+		message.includes('invalid token') ||
+		message.includes('access denied') ||
 		message.includes('unauthorized') ||
 		message.includes('forbidden')
 	) {
