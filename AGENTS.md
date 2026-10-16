@@ -44,6 +44,7 @@ The package is intentionally split into trigger and action nodes, similar to Tel
 - Route all network uploads through n8n helpers; no direct fetch or fallback that bypasses n8n policy. Native FormData is serialized to a Buffer with its Content-Type before passing it to the helper. Do not add multipart dependencies. All Bot API redirects are disabled and the HTTP timeout is 300 seconds; uploads remain fully buffered. Authentication must always come from credentials, never from request parameters.
 - `chat.getMembers` returns one page and preserves its opaque cursor. `chat.setAvatar` uses multipart field `image`, unlike message uploads using `file`.
 - Trigger user filters use addedBy/removedBy for membership events and from for the other events. Affected members are not actors. Missing user fields do not bypass an active filter; unpinnedMessage normally has no user field.
+- Missing events arrays remain retryable without emitError. Active triggers warn through the n8n logger at most once per minute per instance, with fixed text and no response, URL, or credentials. Preserve the cursor on these failures and recovery on the next valid response.
 
 - Message Send Mode explicitly selects none/reply/forward. Validate nonempty unique string ID arrays and serialize repeated replyMsgId/forwardMsgId keys; never infer a mode or read hidden expressions.
 - File Source defaults to binary. File ID uses GET on sendFile/sendVoice without reading storage or downloading anything, and does not require a new fileId in the response.

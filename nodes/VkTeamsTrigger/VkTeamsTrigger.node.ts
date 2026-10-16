@@ -18,6 +18,7 @@ import { downloadBinary, sendJsonRequest } from '../VkTeams/shared/runtime';
 const DEFAULT_LONG_POLL_TIMEOUT_SECONDS = 20;
 const MIN_LONG_POLL_TIMEOUT_SECONDS = 1;
 const MAX_LONG_POLL_TIMEOUT_SECONDS = 55;
+const INVALID_EVENTS_WARNING_INTERVAL_MS = 60_000;
 
 const triggerProperties: INodeProperties[] = [
 	{
@@ -144,6 +145,7 @@ export class VkTeamsTrigger implements INodeType {
 		const state = this.getWorkflowStaticData('node') as { lastEventId?: unknown };
 		let isClosed = false;
 		let currentAbortController: AbortController | undefined;
+		let lastInvalidEventsWarningAt = -Infinity;
 
 		const createExecutionData = async (result: Awaited<ReturnType<typeof runLongPollRequest>>) => {
 			state.lastEventId = result.lastEventId;
@@ -195,6 +197,17 @@ export class VkTeamsTrigger implements INodeType {
 							})) as { events?: unknown[] };
 
 							if (!Array.isArray(response.events)) {
+								const now = Date.now();
+								if (
+									!isClosed &&
+									this.getMode() === 'trigger' &&
+									now - lastInvalidEventsWarningAt >= INVALID_EVENTS_WARNING_INTERVAL_MS
+								) {
+									lastInvalidEventsWarningAt = now;
+									this.logger.warn(
+										'VK Teams /events/get response did not contain an events array; retrying with backoff. Further warnings are limited to once per minute.',
+									);
+								}
 								throw new ApplicationError('VK Teams events response did not contain events array');
 							}
 
